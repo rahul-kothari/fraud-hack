@@ -4,12 +4,15 @@
     python -m screening.pipeline --grok off            # regex only
     python -m screening.pipeline --alerts A-957E63     # one alert, prints the trail
     python -m screening.pipeline --labelled            # only alerts that have practice labels
+    python -m screening.pipeline --grok off --data ../data/dev --official ../output/dev.jsonl
+                                                       # an official data folder, organisers' output format
 """
 from __future__ import annotations
 
 import argparse
 import json
 import time
+from pathlib import Path
 
 from .config import OUTPUTS
 from .dates import PDate
@@ -82,6 +85,28 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
 
 LABEL_COLUMNS = ["hit_id", "alert_id", "decision", "reason_codes", "customer_record_ids", "evidence",
                  "reference_reason", "path"]
+
+
+OFFICIAL_FIELDS = ("hit_id", "alert_id", "decision", "reason_code", "customer_record_id", "reason", "evidence")
+
+
+def official_row(r: dict) -> dict:
+    """One decision in the organisers' output format (output.schema.json): a single reason
+    code (the main ground, listed first), one customer record, the reason and the deciding
+    record IDs. Several records of one person (an old account and a current one) all count as
+    right, so the first is given; AMBIGUOUS only when the engine found more than one person."""
+    ids = [i for i in r["customer_record_ids"] if i]
+    record = "AMBIGUOUS" if "AMBIGUOUS" in ids else (ids[0] if ids else None)
+    return {"hit_id": r["hit_id"], "alert_id": r["alert_id"], "decision": r["decision"],
+            "reason_code": r["reason_codes"][0], "customer_record_id": record,
+            "reason": r["reference_reason"], "evidence": list(r["evidence"])}
+
+
+def write_official(rows: list[dict], path: str) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for r in rows:
+            f.write(json.dumps(official_row(r), ensure_ascii=False) + "\n")
 
 
 def write_csv(rows: list[dict], path: str) -> None:
@@ -163,13 +188,15 @@ def main() -> None:
                     help="auto: call Grok when a key is set; cache: use cached answers only; off: regex only")
     ap.add_argument("--alerts", nargs="*", help="only these alert IDs")
     ap.add_argument("--labelled", action="store_true", help="only alerts with practice labels")
+    ap.add_argument("--data", help="an official data folder (e.g. ../data/dev); default: processed/tables")
     ap.add_argument("--out", default=str(OUTPUTS / "decisions.jsonl"))
+    ap.add_argument("--official", help="also write the decisions in the organisers' output format (e.g. ../output/dev.jsonl)")
     ap.add_argument("--csv", help="also write the decisions as a CSV in the practice labels' columns and format")
     ap.add_argument("--casebook", help="also write the decisions for visual/casebook.html (e.g. ../visual/decisions.js)")
     args = ap.parse_args()
 
     t0 = time.time()
-    store = Store()
+    store = Store(args.data)
     grok = None if args.grok == "off" else Grok(offline=args.grok == "cache")
     resolver = Resolver(store, grok)
     print(f"loaded in {time.time() - t0:.1f}s; {grok.stats() if grok else 'grok off'}")
@@ -197,6 +224,8 @@ def main() -> None:
     print(f"{len(rows)} hits from {len(alerts)} alerts -> {args.out}  {counts}")
     if grok:
         print(grok.stats())
+    if args.official:
+        write_official(rows, args.official)
     if args.csv:
         write_csv(rows, args.csv)
     if args.casebook:

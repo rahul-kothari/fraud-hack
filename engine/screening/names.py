@@ -15,6 +15,8 @@ import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
 
+from pathlib import Path
+
 from .config import REFERENCE
 
 PLACEHOLDERS = {"na", "test", "unknown", "xxx", "none", "null", "nil", "tbd", "tba", "unk", "noname",
@@ -23,11 +25,36 @@ _TRANSLIT = str.maketrans({"ß": "ss", "ø": "o", "Ø": "o", "æ": "ae", "Æ": "
                            "ł": "l", "Ł": "l", "đ": "d", "Đ": "d", "ı": "i", "þ": "th", "ð": "d"})
 
 
+_VARIANTS_PATH = REFERENCE / "name_variants.json"
+
+
+def use_variants(path) -> None:
+    """Read name variants from this file (a data folder's name_variants.json) from now on.
+    None keeps the current file. Also points the translit package at it."""
+    global _VARIANTS_PATH
+    if path is None:
+        return
+    import os
+    _VARIANTS_PATH = path
+    os.environ["NAME_VARIANTS_PATH"] = str(path)
+    _reference.cache_clear()
+    parts.cache_clear()
+    part_match.cache_clear()
+    try:
+        from .translit import variants as _tv
+        _tv._DEFAULT = None
+    except ImportError:
+        pass
+    from . import decide
+    decide._TRANSLIT = None
+
+
 @lru_cache(maxsize=1)
 def _reference() -> tuple[dict[str, frozenset[int]], frozenset[str]]:
-    data = json.loads((REFERENCE / "name_variants.json").read_text(encoding="utf-8"))
+    data = json.loads(Path(_VARIANTS_PATH).read_text(encoding="utf-8"))
     groups: dict[str, set[int]] = {}
-    for gi, g in enumerate(data["name_variant_groups"]):
+    # official file: "groups"; our processed copy: "name_variant_groups"
+    for gi, g in enumerate(data.get("groups") or data.get("name_variant_groups") or []):
         for w in g:
             groups.setdefault(w, set()).add(gi)
     return {k: frozenset(v) for k, v in groups.items()}, frozenset(data["company_legal_forms"])

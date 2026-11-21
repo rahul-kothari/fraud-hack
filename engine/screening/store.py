@@ -1,16 +1,24 @@
-"""Loads processed/tables/*.jsonl and builds the lookup indexes the workflow needs."""
+"""Loads the data and builds the lookup indexes the workflow needs.
+
+The data is either an official data folder (the organisers' JSON Lines layout, read through
+ingest.py) or processed/tables (written by prepare.py from the workbook)."""
 from __future__ import annotations
 
 import json
 import re
 from collections import defaultdict
+from pathlib import Path
 
+from . import ingest, names
 from .config import TABLES
 
 
-def _load(name: str) -> list[dict]:
-    with open(TABLES / f"{name}.jsonl", encoding="utf-8") as f:
-        return [json.loads(line) for line in f]
+def _load_processed(folder: Path, name: str) -> list[dict]:
+    p = folder / f"{name}.jsonl"
+    if not p.exists():
+        return []
+    with open(p, encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
 
 
 def norm_phone(p: str | None) -> str | None:
@@ -18,7 +26,15 @@ def norm_phone(p: str | None) -> str | None:
 
 
 class Store:
-    def __init__(self) -> None:
+    def __init__(self, data_dir: str | Path | None = None) -> None:
+        folder = Path(data_dir) if data_dir else TABLES
+        self.official = ingest.is_official(folder)
+        if self.official:
+            _load = lambda name: ingest.load(folder, name)  # noqa: E731
+            names.use_variants(ingest.name_variants_path(folder))
+        else:
+            _load = lambda name: _load_processed(folder, name)  # noqa: E731
+        self.data_dir = folder
         self.alerts = _load("alerts")
         self.hits = {h["hit_id"]: h for h in _load("hits")}
         self.customers = {c["record_id"]: c for c in _load("customers")}

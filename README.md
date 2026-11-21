@@ -46,3 +46,10 @@ python3 -m venv .venv && .venv/bin/pip install pandas openpyxl
 The first run reads the workbook in about 45 seconds. Later runs reuse `.cache` and take about 12.
 
 `--check` tests the plumbing against the 50 practice labels: did it find the labelled customer records, and does it surface every record the answer cites. It does not compare decisions.
+
+## Submission format
+
+`system/run <data folder> <output file>` runs the engine on an official data folder (the data room's
+`dev/` layout) and writes the organisers' output format; `output/dev.jsonl` is its output on the dev
+set. See `system/README.md`. Keep the data room itself in `data/` (git-ignored): it must not be
+committed.
