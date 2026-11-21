@@ -46,7 +46,7 @@ button{font:inherit;color:inherit}
 .list a[aria-current=true]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .li-name{font-size:.9rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .li-meta{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
-.li-key{color:var(--warn)}
+.li-tags{display:flex;gap:6px;align-items:center;margin:2px 0 1px}
 .list .empty{padding:12px;color:var(--muted);font-size:.9rem}
 main{min-width:0}
 .case{max-width:1020px;margin:0 auto;padding:28px 28px 72px;display:grid;gap:30px}
@@ -169,7 +169,7 @@ section..key dd{margin:0;overflow-wrap:anywhere}
 .pred dt{color:var(--muted);font-family:var(--f-mono);font-size:.72rem;padding-top:2px}
 .pred dd{margin:0;overflow-wrap:anywhere}
 .rk{display:inline-block;font-family:var(--f-mono);font-size:.72rem;font-weight:500;padding:1px 7px;border-radius:4px;white-space:nowrap;vertical-align:1px}
-.rk-high{background:var(--bad);color:var(--panel)}
+.rk-high{background:var(--bad-soft);color:var(--bad)}
 .rk-medium{background:var(--warn-soft);color:var(--warn)}
 .rk-low{background:var(--off-soft);color:var(--off)}
 .drivers{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.86rem}
@@ -233,8 +233,8 @@ const codes = xs => splitCodes(xs).map(esc).join(' · ');
 const showEng = () => !!ENG;
 // fraud-risk score (engine/screening/risk.py): beside the SOP decision, never changes it
 const engRisk = id => engHit(id)?.risk || null;
-const rchip = r => r ? `<span class="rk rk-${esc(r.risk_band)}" title="Modelled chance that the hit is the customer">${r.risk_pct}% ${esc(r.risk_band)}</span>` : '';
-const RISK_BANDS = {Sanctions:[30,10], Enforcement:[40,15], PEP:[50,20], SOE:[50,20], 'Adverse Media':[60,25]};
+// the percentage only; its colour carries the level for the listing type
+const rchip = r => r ? `<span class="rk rk-${esc(r.risk_band)}" title="Fraud risk: modelled chance that the hit is the customer">${r.risk_pct}%</span>` : '';
 const FLAG_TEXT = {identity_inconsistency:'record name matches the hit, KYC document does not', dob_near_identical:'date of birth nearly identical', native_alias_match:'matches a native-script alias'};    // predicted results always show when decisions.js is present
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CHIP = {'agrees':'c-ok','no conflict':'c-ok','contradicts':'c-bad','neither':'c-warn','too few parts':'c-warn','differs (name not verified)':'c-warn','no data':'c-off'};
@@ -254,16 +254,17 @@ function matches(it){
   return hay.includes(S.q);
 }
 function listRisk(it){
-  // only where the SOP does not already escalate: the risk then adds something
-  if (!showEng() || engAlert(it.id) === 'SAME_ENTITY') return '';
+  // the alert's risk is its riskiest hit
+  if (!showEng()) return '';
   const r = (S.data.cases[it.id]?.hits || []).map(h => engRisk(h.id)).filter(Boolean).sort((a, b) => b.risk_pct - a.risk_pct)[0];
-  return r && r.risk_band === 'high' ? rchip(r) + ' ' : '';
+  return rchip(r);
 }
 function renderList(){
   const items = S.data.index.filter(matches);
   $('#list').innerHTML = items.map(it => `<li><a href="#${esc(it.id)}" ${it.id===S.id?'aria-current="true"':''}>
     <span class="li-name">${esc(it.name)}</span>
-    <span class="li-meta">${showEng() && engAlert(it.id) ? dchip(engAlert(it.id)) + ' ' : ''}${listRisk(it)}${esc(it.id)} · ${plural(it.hits,'hit')}${it.link==='search'?' · no link':''}${it.type==='Company'?' · company':''}${it.people>1?` · ${it.people} people`:''}${it.label?' · <span class="li-key">answer key</span>':''}</span></a></li>`).join('')
+    ${showEng() && engAlert(it.id) ? `<span class="li-tags">${dchip(engAlert(it.id))}${listRisk(it)}</span>` : ''}
+    <span class="li-meta">${esc(it.id)} · ${plural(it.hits,'hit')}${it.link==='search'?' · no link':''}${it.type==='Company'?' · company':''}${it.people>1?` · ${it.people} people`:''}</span></a></li>`).join('')
     || '<li class="empty">No alerts match. Clear the search or pick another filter.</li>';
 }
 
@@ -471,7 +472,7 @@ function resultDetail(c, h){
   const v = e.vs_label;
   const r = engRisk(h.id);
   const clash = r && e.decision === 'DIFFERENT_ENTITY' && r.risk_band === 'high'
-    ? `<p class="pred-label"><b>Cleared under the SOP, but the risk model rates it high.</b> The decision stands; a person may want to look.</p>` : '';
+    ? `<p class="pred-label"><b>Cleared under the SOP, but the risk model puts the chance this is the customer at ${r.risk_pct}%.</b> The decision stands; a person may want to look.</p>` : '';
   const label = l ? `<p class="pred-label">Practice label: <b>${esc(l.decision)}</b> · ${codes(l.reason_codes)} ${v ? tick(v.decision,'decision') + tick(v.reason,'reason') : tick(l.decision===e.decision,'decision')}</p>` : '';
   return `<section class="pred p-${esc(e.decision)}" aria-label="Predicted result for ${esc(h.id)}">
     <div class="pred-head"><span class="pred-dec">${esc(e.decision)}</span><span class="pred-code">${esc(e.reason_codes[0]||'—')}</span>${also}${r ? `<span class="small">Fraud risk ${rchip(r)}</span>` : ''}</div>
@@ -484,7 +485,6 @@ function resultDetail(c, h){
 
 function riskBody(h, r){
   const cat = h.category || 'Other';
-  const [hi, med] = RISK_BANDS[cat] || [70, 30];
   const drivers = r.risk_drivers.map(t => {
     const m = t.match(/^(.*) \(([+-]\d+\.\d)\)$/);
     const txt = m ? m[1] : t, w = m ? parseFloat(m[2]) : 0;
@@ -492,7 +492,7 @@ function riskBody(h, r){
   }).join('');
   const flags = r.risk_flags.map(f => `<span class="flagchip">${esc(FLAG_TEXT[f] || f)}</span>`).join('');
   return `${flags ? `<div>${flags}</div>` : ''}<ul class="drivers">${drivers}</ul>
-    <p class="small muted">Each line adds to or takes from the starting odds (about 15%); positive lines point to the same person. For a ${esc(cat)} hit the band is high from ${hi}% and medium from ${med}%. The weights are set by judgement, not fitted to outcomes, so use it to rank and triage. It never changes the SOP decision.</p>`;
+    <p class="small muted">Each line adds to or takes from the starting odds (about 15%); positive lines point to the same person. The colour reflects the listing type: a sanctions hit turns red at a lower percentage than adverse media. The weights are set by judgement, not fitted to outcomes, so use it to rank and triage. It never changes the SOP decision.</p>`;
 }
 
 /* where a cited record appears in the steps, mark it */
