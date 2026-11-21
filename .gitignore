@@ -1,0 +1,8 @@
+# Fast-reload copy of the workbook, written by build_casebook.py --cache
+.cache/
+
+# Local Python environments
+.venv/
+__pycache__/
+
+.DS_Store
