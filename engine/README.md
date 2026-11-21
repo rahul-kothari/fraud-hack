@@ -19,7 +19,7 @@ python -m screening.pipeline --casebook ../visual/decisions.js # decide all 819 
 python -m screening.pipeline --csv outputs/decisions.csv       # same, plus a CSV in the practice labels' format
 python -m screening.evaluate -v                                # score against the 50 practice labels
 python -m screening.pipeline --alerts A-957E63                 # one alert, prints its trail
-python -m unittest discover tests                              # rules from the SOP's own examples
+python -m pytest -q tests                                      # 71 tests: SOP rules, transliteration, risk
 ```
 
 `prepare.py --csv-dir DIR` reads the workbook's CSV exports instead, using only the standard library.
@@ -46,6 +46,16 @@ outcome: the engine only clears on a contradiction and only confirms on agreemen
 | Hit picture: DOB from `dobs`, then the profile notes' first paragraph, then qualifying search results; countries; earliest dated report | `decide.py`, `extract.py` | 5 |
 | Contradictions (all that apply), then agreement, then combine several people | `decide.py` | 6, 7, 3 |
 | Name matching | `names.py` | 8 |
+| Native-script aliases (Arabic, Cyrillic, Bengali, Chinese, …) | `translit/` | 8 |
+
+**Transliteration (`translit/`).** Hit aliases in other scripts are read through a romanization
+lattice (see [`translit/README.md`](screening/translit/README.md)). It is used as a one-way safety
+net. If the customer's verified name matches no Latin name of the hit but agrees with a native-script
+alias that has no Latin counterpart (e.g. أنيس رحماني, Anis Rahmani, on "Mokaddem, Mohamed"), the hit
+is not cleared on NAME_MISMATCH_VERIFIED. It is decided on the other facts, or goes to REVIEW. A
+transliterated match never confirms a hit, which keeps the engine aligned with the practice labels,
+which read names literally. Its own principle-8 matcher agrees with `names.py` on 878 of 881 dev name
+checks. The 3 differences are explained in the transliteration README notes.
 
 **Evidence.** Each decision cites the sources of the facts that settled it, the same way the practice
 labels do:

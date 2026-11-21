@@ -115,15 +115,29 @@ def compare_parts(a: tuple[str, ...], b: tuple[str, ...]) -> NameResult:
     # A part written together matches the same parts written apart on the OTHER side (Abdulsalam ~
     # Abdul Salam). Joining on both sides is not allowed: it would let "garethwyn" match "garethwynn"
     # although "wyn" and "wynn" (under 4 letters) do not match.
+    # Parts under 4 letters must be identical, also inside a joined pair: "st"+"logistics" written
+    # together is 2 edits from "logistics", but that would swallow "st", so a joined pair that
+    # contains a short part must match exactly.
+    def joined_ok(ua: str, ia: frozenset, side: tuple, ub: str) -> bool:
+        return len(ia) == 1 or all(len(side[i]) >= 4 for i in ia) or ua == ub
+
     cand = [(ua, ia, ub, ib) for ua, ia in _units(a) for ub, ib in _units(b)
-            if not (len(ia) > 1 and len(ib) > 1) and part_match(ua, ub)]
-    best: tuple[int, int, tuple] = (0, 0, ())  # (matches, covered-of-shorter, pairs)
-    short_is_a = len(a) <= len(b)
+            if not (len(ia) > 1 and len(ib) > 1) and part_match(ua, ub)
+            and joined_ok(ua, ia, a, ub) and joined_ok(ub, ib, b, ua)]
+    def covers_shorter(used_a: frozenset, used_b: frozenset) -> bool:
+        # "Every part of the shorter name matches". With equal lengths neither name is shorter, so
+        # either side being fully covered counts ("Mun Chen" is all covered by "Munchen").
+        if len(a) < len(b):
+            return len(used_a) == len(a)
+        if len(b) < len(a):
+            return len(used_b) == len(b)
+        return len(used_a) == len(a) or len(used_b) == len(b)
+
+    best: tuple[bool, int, tuple] = (False, 0, ())  # (agrees, matches, pairs)
 
     def search(k: int, used_a: frozenset, used_b: frozenset, chosen: tuple) -> None:
         nonlocal best
-        cover = len(used_a) if short_is_a else len(used_b)
-        score = (len(chosen), cover, chosen)
+        score = (len(chosen) >= 2 or (bool(chosen) and covers_shorter(used_a, used_b)), len(chosen), chosen)
         if score[:2] > best[:2]:
             best = score
         for n in range(k, len(cand)):
@@ -133,9 +147,7 @@ def compare_parts(a: tuple[str, ...], b: tuple[str, ...]) -> NameResult:
             search(n + 1, used_a | ia, used_b | ib, chosen + ((ua, ub),))
 
     search(0, frozenset(), frozenset(), ())
-    matched, covered, pairs = best
-    shorter = len(a) if short_is_a else len(b)
-    agrees = matched >= 2 or covered == shorter
+    agrees, matched, pairs = best
     return NameResult(agrees, matched, pairs)
 
 

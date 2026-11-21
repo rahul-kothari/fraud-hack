@@ -16,6 +16,7 @@ from .dates import PDate
 from .decide import combine, decide_one, hit_facts
 from .evidence import describe
 from .grok import Grok
+from .risk import assess as risk_assess, combine as risk_combine
 from .resolve import Resolver
 from .store import Store
 
@@ -46,6 +47,7 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
         hit = store.hits[hit_id]
         hf = hit_facts(hit, store, grok)
         verdicts = [(p, decide_one(p, hf, screened_at)) for p in res.people]
+        risk = risk_combine([risk_assess(p, hit, hf, screened_at) for p in res.people])
         v, cust_ids = combine(verdicts)
         if res.people[0].from_alert_only:
             cust_ids = []
@@ -69,6 +71,11 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
             "path": " → ".join(path),
             "extraction_methods": hf.methods,
             "evidence_detail": detail,
+            "risk_pct": risk.pct,
+            "risk_band": risk.band,
+            "p_same": risk.p_same,
+            "risk_drivers": [f"{t} ({x:+.1f})" for t, x in risk.drivers],
+            "risk_flags": risk.flags,
         })
     return out
 
@@ -113,6 +120,7 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
             "customer_record_ids": r["customer_record_ids"], "evidence": r["evidence"],
             "reason": r["reference_reason"], "path": r["path"].split(" → "),
             "methods": r["extraction_methods"], "evidence_detail": r["evidence_detail"],
+            "risk": {k: r[k] for k in ("risk_pct", "risk_band", "p_same", "risk_drivers", "risk_flags")},
             **({"vs_label": per[r["hit_id"]]} if r["hit_id"] in per else {}),
         }
     outcomes = {a["alert_id"]: alert_outcome([by_hit[h]["decision"] for h in a["hit_ids"] if h in by_hit])
