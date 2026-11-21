@@ -47,6 +47,22 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .topnav a[aria-current=page]{color:var(--accent);background:var(--accent-soft)}
 .soon{display:inline-block;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:99px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px}
 .page{max-width:1340px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
+.ai-head{display:grid;gap:6px}
+.ai-sum{color:var(--muted);font-family:var(--f-mono);font-size:.9rem}
+.acts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.act{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:grid;gap:6px;min-width:0}
+.act-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+.act-head a{font-weight:600}
+.act-name{font-weight:500}
+.act-status{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;padding:1px 8px;border-radius:99px}
+.act-status.fixed{background:var(--ok-soft);color:var(--ok)}
+.act-status.kept{background:var(--off-soft);color:var(--off)}
+.act-change{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.act-code{font-family:var(--f-mono);font-size:.76rem;color:var(--muted)}
+.act-arrow{color:var(--muted)}
+.act-cause{font-size:.92rem}
+.act details summary{cursor:pointer;color:var(--accent);font-size:.84rem}
+.act details p{font-size:.84rem;color:var(--muted);margin-top:6px;overflow-wrap:anywhere}
 .ov-head{display:grid;gap:18px;justify-items:center;text-align:center;padding-top:24px}
 .ov-head h1{font-size:2.4rem;max-width:22ch}
 .ov-words{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
@@ -660,9 +676,36 @@ function overviewPage(){
     </svg></div>`;
 }
 
-/* ---------------- AI review: blank for now ---------------- */
+/* ---------------- AI review: the actions the AI review took ---------------- */
+const CAUSE_TEXT = {
+  "missed 'born in YYYY'": "Read “born in YYYY” in the hit's profile",
+  "missed profile DOB field": "Read the “DOB:” field in the hit's profile",
+  "missed age sentence": "Read an age sentence the engine had missed",
+  "missed search-result date": "Read a search-result date written in two parts",
+  "name-matcher bug": "Fixed the name matcher (no joining on both sides)",
+  "policy ambiguity (territory)": "Flagged a territory vs country question",
+};
 function aiPage(){
-  return '';
+  const acts = ENG?.review_actions || [];
+  if (!acts.length) return '';
+  const hitName = (aid, hid) => (S.data.cases[aid]?.hits || []).find(h => h.id === hid)?.row.name || '';
+  const fixed = acts.filter(x => /^Fixed/.test(x.resolution)).length;
+  const rows = acts.map(x => {
+    const kept = !/^Fixed/.test(x.resolution);
+    const after = kept ? x.current_decision : x.suggested_decision;
+    const afterCode = kept ? x.current_reason : x.suggested_reason;
+    return `<li class="act">
+      <div class="act-head"><span class="act-status ${kept ? 'kept' : 'fixed'}">${kept ? 'Kept' : 'Fixed'}</span>
+        <a class="mono" href="#${esc(x.alert_id)}">${esc(x.hit_id)}</a><span class="act-name">${esc(hitName(x.alert_id, x.hit_id))}</span></div>
+      <div class="act-change">${dchip(x.current_decision)} <span class="act-code">${esc(x.current_reason)}</span>
+        ${kept ? '<span class="act-arrow">· unchanged</span>' : `<span class="act-arrow">→</span> ${dchip(after)} <span class="act-code">${esc(afterCode)}</span>`}</div>
+      <div class="act-cause">${esc(CAUSE_TEXT[x.cause] || x.cause)}</div>
+      <details><summary>Evidence</summary><p>${esc(x.evidence_summary)}</p></details>
+    </li>`;
+  }).join('');
+  return `<header class="ai-head"><h1>AI review</h1>
+      <p class="ai-sum">${acts.length} hits flagged · ${fixed} fixed · ${acts.length - fixed} kept as the SOP says</p></header>
+    <ol class="acts">${rows}</ol>`;
 }
 
 /* ---------------- wiring ---------------- */

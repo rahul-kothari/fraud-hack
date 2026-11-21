@@ -105,6 +105,19 @@ def alert_outcome(decisions: list[str]) -> str:
     return "REVIEW"
 
 
+def review_actions() -> list[dict]:
+    """The AI review's log (engine/review/flagged_hits.csv), for the casebook's AI review tab."""
+    import csv
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "review" / "flagged_hits.csv"
+    if not p.exists():
+        return []
+    keep = ("hit_id", "alert_id", "current_decision", "current_reason", "suggested_decision", "suggested_reason",
+            "cause", "evidence_summary", "resolution")
+    with open(p, encoding="utf-8", newline="") as f:
+        return [{k: r.get(k, "") for k in keep} for r in csv.DictReader(f)]
+
+
 def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str, engine: str) -> None:
     """Write window.DECISIONS for visual/casebook.html. A script, not JSON, so the page opens from disk."""
     from datetime import datetime, timezone
@@ -135,6 +148,7 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
                                    for k in ("DIFFERENT_ENTITY", "REVIEW", "SAME_ENTITY")},
                  "labels": s},
         "hits": hits, "alerts": outcomes,
+        "review_actions": review_actions(),
     }
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("window.DECISIONS = ")
