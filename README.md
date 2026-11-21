@@ -25,7 +25,7 @@ customer, with its drivers folded below. It sits beside the SOP decision and nev
 A casebook of every screening alert in the dev set. Each alert is laid out as a story: the customer and the watchlist hit side by side, the SOP's steps to an answer, a hint for each rule, and the raw rows. The hints are mechanical checks of single rules. The casebook itself makes no decisions. The engine's decisions are a separate, optional layer.
 
 - `build_casebook.py` reads the dev-set workbook and writes `data.js`.
-- `casebook.html` is the page. It loads `data.js` from the same folder, and `decisions.js` if present. It has three tabs: **Overview** (`#overview`, the landing page with the headline numbers), **Casebook** (`#casebook` or an alert ID) and **AI review** (`#ai-review`, planned: an assistant to review decisions and propose or test policy rules; not built yet).
+- `casebook.html` is the page. It loads `data.js` from the same folder, and `decisions.js` if present. It has three tabs: **Overview** (`#overview`, the landing page: a diagram of how a hit is decided), **Casebook** (`#casebook` or an alert ID) and **AI review** (`#ai-review`, a placeholder for the planned AI review; empty for now).
 - `data.js` is the built data, so the page works straight from a clone.
 - `decisions.js` holds the engine's decisions (written by `engine/`). Without it the page shows only the hints.
 

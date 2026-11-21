@@ -47,29 +47,18 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .topnav a[aria-current=page]{color:var(--accent);background:var(--accent-soft)}
 .soon{display:inline-block;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:99px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px}
 .page{max-width:1020px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
-.page section{display:grid;gap:14px}
-.page .lede{font-size:1.05rem;color:var(--muted);max-width:70ch}
-.page h1{font-size:2.2rem}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:4px;align-content:start;min-width:0}
-.tile .num{font-family:var(--f-display);font-size:1.8rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
-.tile p{font-size:.86rem;color:var(--muted)}
-.splitbar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:6px}
-.splitbar span{display:block;height:100%}
-.splitbar .s{background:var(--bad)} .splitbar .r{background:var(--warn)} .splitbar .d{background:var(--ok)}
-.howto{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;counter-reset:h}
-.howto li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px 16px;display:grid;gap:6px;counter-increment:h;align-content:start}
-.howto li::before{content:counter(h);font-family:var(--f-display);font-weight:600;color:var(--accent);background:var(--accent-soft);width:26px;height:26px;border-radius:50%;display:grid;place-items:center}
-.howto p{font-size:.88rem;color:var(--muted)}
-.cta{display:flex;flex-wrap:wrap;gap:10px}
-.btn{display:inline-block;text-decoration:none;padding:9px 16px;border-radius:8px;font-weight:500;border:1px solid var(--accent);color:var(--accent)}
-.btn.primary{background:var(--accent);color:var(--panel)}
-.plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-.plan div{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:6px;align-content:start}
-.plan p{font-size:.88rem;color:var(--muted)}
-.rules{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.rules li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:.9rem;display:grid;gap:6px}
-.rules ul{margin:0;padding-left:18px;display:grid;gap:3px;font-size:.86rem;color:var(--muted)}
+.ov-head{display:grid;gap:18px;justify-items:center;text-align:center;padding-top:24px}
+.ov-head h1{font-size:2.4rem;max-width:22ch}
+.ov-words{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.ov-words span{font-family:var(--f-display);font-size:1.15rem;font-weight:600;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);padding:6px 18px;border-radius:99px}
+.ov-diagram{overflow-x:auto}
+.ov-diagram svg{display:block;width:100%;min-width:640px;height:auto}
+.ov-box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+.ov-core{fill:var(--accent-soft);stroke:var(--accent)}
+.ov-t{fill:var(--fg);font-family:var(--f-display);font-weight:600;font-size:20px;text-anchor:middle}
+.ov-s{fill:var(--muted);font-family:var(--f-body);font-size:14px;text-anchor:middle}
+.ov-edge{fill:none;stroke:var(--muted);stroke-width:1.6}
+.ov-tip{fill:var(--muted)}
 .app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100vh - var(--nav-h))}
 .side{position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px));height:calc(100vh - var(--nav-h) - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--side);border-right:1px solid var(--line);min-width:0}
 .side-head{padding:20px 16px 12px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
@@ -603,61 +592,35 @@ function renderCase(){
 }
 
 /* ---------------- overview (cover page) ---------------- */
-const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<span class="mono">$1</span>').replace(/\*([^*]+)\*/g, '<i>$1</i>');
 function overviewPage(){
-  const m = S.data.meta;
-  const tiles = [`<div class="tile"><span class="eyebrow">Dev set</span><span class="num">${m.alerts} alerts</span><p>${m.hits} watchlist hits to decide, each: is this our customer?</p></div>`];
-  let cta = '';
-  if (ENG) {
-    const dd = ENG.meta.decisions || {}, n = m.hits, L = ENG.meta.labels || {};
-    const pc = k => (100 * (dd[k] || 0) / n).toFixed(1);
-    tiles.push(`<div class="tile"><span class="eyebrow">Engine decisions</span><span class="num">${dd.DIFFERENT_ENTITY||0} · ${dd.REVIEW||0} · ${dd.SAME_ENTITY||0}</span>
-      <p>DIFFERENT_ENTITY · REVIEW · SAME_ENTITY</p><div class="splitbar" role="img" aria-label="Decision split"><span class="d" style="width:${pc('DIFFERENT_ENTITY')}%"></span><span class="r" style="width:${pc('REVIEW')}%"></span><span class="s" style="width:${pc('SAME_ENTITY')}%"></span></div></div>`);
-    if (L.scored) tiles.push(`<div class="tile"><span class="eyebrow">Practice labels</span><span class="num">${L.decision}/${L.scored}</span><p>decisions match the answer key; ${L.reason}/${L.scored} reason codes, ${L.customer}/${L.scored} customers. ${L.worst.length} customers wrongly cleared.</p></div>`);
-    const cleared = Object.entries(ENG.hits).filter(([, h]) => h.decision === 'DIFFERENT_ENTITY' && h.risk?.risk_band === 'high');
-    tiles.push(`<div class="tile"><span class="eyebrow">Fraud risk</span><span class="num">${cleared.length}</span><p>hits the SOP clears that the risk model still rates high, for a person to look at.</p></div>`);
-    const top = cleared.sort((a, b) => b[1].risk.risk_pct - a[1].risk.risk_pct)[0];
-    const topAlert = top && Object.entries(S.data.cases).find(([, c]) => c.hits.some(h => h.id === top[0]));
-    cta = topAlert ? `<a class="btn" href="#${esc(topAlert[0])}">See the riskiest cleared case (${top[1].risk.risk_pct}%)</a>` : '';
-  }
-  return `<header class="head" style="display:grid;gap:12px">
-      <div class="eyebrow">GB FinCrime hackathon · Track 1</div>
+  // one arrow-tipped path; the marker is defined once in the svg
+  const arrow = d => `<path class="ov-edge" d="${d}" marker-end="url(#ov-arrow)"/>`;
+  const box = (x, y, w, h, title, sub, cls = '') => `<rect class="ov-box ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>
+    <text class="ov-t" x="${x + w / 2}" y="${y + (sub ? h / 2 - 4 : h / 2 + 6)}">${title}</text>${sub ? `<text class="ov-s" x="${x + w / 2}" y="${y + h / 2 + 18}">${sub}</text>` : ''}`;
+  return `<header class="ov-head">
       <h1>Is the customer the person on the watchlist?</h1>
-      <p class="lede">Name screening raises an alert when a customer's name comes close to a sanctions, PEP, enforcement or adverse-media entry. Each matching entry is a hit. This tool decides every hit by the bank's identity SOP: <b>SAME_ENTITY</b>, <b>DIFFERENT_ENTITY</b> or <b>REVIEW</b>, with the reason code, the customer record and the evidence it relied on. Beside each decision, a fraud-risk score gives the modelled chance that the hit is the customer.</p>
-      <div class="cta"><a class="btn primary" href="#casebook">Open the casebook</a>${cta}<a class="btn" href="#ai-review">AI review (planned)</a></div>
+      <div class="ov-words"><span>Consistency</span><span>Explainability</span></div>
     </header>
-    <section><div class="tiles">${tiles.join('')}</div></section>
-    <section><h2>How a hit is decided</h2>
-      <ol class="howto">
-        <li><h3>Find the customer</h3><p>Follow the alert's account, login or email, or search every customer by the screened name, birth date, country and city. Records sharing a phone and birth date, or a document number, are one person.</p></li>
-        <li><h3>Build both pictures</h3><p>The customer's verified identity from the latest approved KYC check; the hit's birth date, countries and dated reports from its profile and qualifying web results. Aliases in other scripts are read by transliteration.</p></li>
-        <li><h3>Apply the SOP</h3><p>Clear only on a contradiction (type, death, age, birth date, location, verified name). Confirm only when name and birth date (or, for companies, country) agree. Otherwise REVIEW.</p></li>
-        <li><h3>Score the risk</h3><p>A separate, weighted score of how likely the hit is the customer, so cases the SOP clears but that still look risky can be found. It never changes the decision.</p></li>
-      </ol></section>`;
+    <div class="ov-diagram"><svg viewBox="0 0 1000 300" role="img" aria-label="An alert's customer and watchlist hit are compared by the identity SOP, which gives a decision with its reason and evidence, alongside a fraud-risk score">
+      <defs><marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      ${box(10, 120, 130, 60, 'Alert', '')}
+      ${box(200, 40, 200, 80, 'Customer', 'records · KYC · notes')}
+      ${box(200, 180, 200, 80, 'Watchlist hit', 'profile · search results')}
+      ${box(460, 110, 180, 80, 'Identity SOP', 'the same rules, every hit', 'ov-core')}
+      ${box(700, 40, 290, 80, 'Decision', 'reason code · evidence cited')}
+      ${box(700, 180, 290, 80, 'Fraud risk', 'chance it is the customer (%)')}
+      ${arrow('M140,150 H170 V80 H196')}
+      ${arrow('M170,150 V220 H196')}
+      ${arrow('M400,80 H430 V140 H456')}
+      ${arrow('M400,220 H430 V160 H456')}
+      ${arrow('M640,150 H670 V80 H696')}
+      ${arrow('M670,150 V220 H696')}
+    </svg></div>`;
 }
 
-/* ---------------- AI review (planned) ---------------- */
+/* ---------------- AI review: blank for now ---------------- */
 function aiPage(){
-  const lines = S.data.meta.policy || [];
-  const start = lines.indexOf('Principles'), end = lines.indexOf('Reason codes');
-  const rules = [];
-  for (const l of lines.slice(start + 1, end > start ? end : undefined)) {
-    if (/^\d+\./.test(l)) rules.push({head: l, subs: []});
-    else if (l.startsWith('- ') && rules.length) rules[rules.length - 1].subs.push(l.slice(2));
-  }
-  return `<header class="head" style="display:grid;gap:12px">
-      <div class="eyebrow">Planned · not built yet</div>
-      <h1>AI policy review <span class="soon">soon</span></h1>
-      <p class="lede">An assistant that reads a case with all its evidence, checks the engine's decision against the SOP, and helps the team review the rules or propose new ones. Nothing on this page works yet. It sets out what is planned and the rules it would work on.</p>
-    </header>
-    <section><h2>What it will do</h2><div class="plan">
-      <div><h3>Review a decision</h3><p>Read the alert, the customer's records, checks and notes, and the hit's profile, and say whether the decision follows the SOP. Flag anything the rules missed, such as an unusual spelling, a name in another script or a near-identical birth date.</p></div>
-      <div><h3>Propose a rule</h3><p>Describe a rule in plain words ("a country difference should not clear a sanctions hit") and get it written in the SOP's terms, next to the principle it changes.</p></div>
-      <div><h3>Test before adopting</h3><p>Run a proposed rule over all ${S.data.meta.hits} hits and the practice labels, and show exactly which decisions it would change before anyone adopts it.</p></div>
-    </div>
-    <p class="small muted">The AI only reads and suggests. Decisions stay rule-based; a person approves every rule change.</p></section>
-    <section><h2>The rules it works on</h2><p class="lede">The current identity SOP, principle by principle.</p>
-      <ol class="rules">${rules.map(r => `<li><span>${md(r.head)}</span>${r.subs.length ? `<ul>${r.subs.map(x => `<li>${md(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol></section>`;
+  return '';
 }
 
 /* ---------------- wiring ---------------- */
