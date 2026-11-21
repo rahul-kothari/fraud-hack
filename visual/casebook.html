@@ -119,8 +119,6 @@ td{font-variant-numeric:tabular-nums}
 tr.keep td{background:var(--ok-soft)}
 tr.drop td{color:var(--muted)}
 tr.pick td{background:var(--accent-soft)}
-tr.screened td{background:var(--bg);font-weight:500;border-bottom:2px solid var(--line)}
-tr.screened td:first-child{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 tr.more td{color:var(--muted);font-size:.8rem;font-style:italic}
 .chip{display:inline-block;font-family:var(--f-mono);font-size:.7rem;padding:2px 8px;border-radius:99px;white-space:nowrap}
 .c-ok{background:var(--ok-soft);color:var(--ok)}
@@ -270,9 +268,10 @@ function custCard(c, p){
     p.records.length>1 ? `${p.records.length} customer records, merged as one person` : '',
     co.length ? `Shares an account with ${esc(co.join(', '))}` : '',
   ].filter(Boolean);
+  const accs = uniq(c.resolution.links.flatMap(l => l.path.map(x => x.account)).filter(Boolean));   // the account the alert's link names
   return `<div class="person cust"><span class="role">Our customer · the alert</span>
     <span class="who">${esc(p.name)}</span><ul>${li.map(x=>`<li>${x}</li>`).join('')}</ul>
-    <span class="src">${esc(a.alert_id)} · ${esc(p.records.join(', '))}</span></div>`;
+    <span class="src">${esc([a.alert_id, ...accs, p.records.join(', ')].join(' · '))}</span></div>`;
 }
 function hitCard(h){
   const r = h.row;
@@ -311,27 +310,33 @@ function chainLines(l){
   for (const x of l.path) (by[x.account] ||= []).push(x.customer);
   return Object.entries(by).map(([acc, cs]) => `${arrow}${acc} ──▶ ${cs.join(' + ')}${cs.length>1 ? '  (joint account)' : ''}`);
 }
-function listAnd(xs){ return xs.length<2 ? xs.join('') : xs.slice(0,-1).join(', ') + ' and ' + xs[xs.length-1]; }
+function listWord(xs, w){ return xs.length<2 ? xs.join('') : xs.slice(0,-1).join(', ') + ` ${w} ` + xs[xs.length-1]; }
+function listAnd(xs){ return listWord(xs, 'and'); }
 function stepFind(c){
   const a = c.alert, res = c.resolution, linked = res.mode==='linked';
   const chosen = new Set(c.people.flatMap(p=>p.records));
-  const head = ['Record','Name','Born','Nationality / residence','City','Hint'];
+  const head = ['Record','Name','Born','Nationality / residence','City','Matches the alert?'];
   const base = linked ? res.candidates : res.named_rows;
-  const screenedRow = `<tr class="screened"><td>screened</td><td>${esc(a.customer_name)}</td><td>${esc(a.dob||'—')}</td><td>${esc(a.country||'—')}</td><td>${esc(a.city||'—')}</td><td></td></tr>`;
   const rest = linked ? 0 : res.named_total - res.named_rows.length;
   const moreRow = rest>0 ? `<tr class="more"><td colspan="6">+ ${plural(rest,'more record')} with an agreeing name, failing as many checks or more</td></tr>` : '';
+  // what the alert itself says: the screened details, and the ones it leaves out
+  const isCo = a.entity_type==='Company';
+  const given = [a.dob && `${isCo?'founded':'born'} ${a.dob}`, a.country, a.city].filter(Boolean);
+  const missing = [!a.dob && (isCo?'founding date':'birth date'), !a.country && 'country', !a.city && 'city'].filter(Boolean);
+  const screened = `The bank screened ${[a.customer_name, ...given].join(', ')}.${missing.length ? ` The alert gives no ${listWord(missing, 'or')}.` : ''}`;
   let lead;
   if (linked) {
     const n = res.candidates.length;
-    lead = `<p>The alert carries ${esc(listAnd(res.links.map(l => `the ${LINK_WORD[l.kind]} ${l.value}`)))}. The table shows the ${n===1 ? 'record' : n+' records'} it leads to, checked against what was screened.</p><pre class="chain">${esc(res.links.flatMap(chainLines).join('\n'))}</pre>`;
+    const leads = n===0 ? 'which leads to no customer record' : `which leads to the ${n===1 ? 'record' : n+' records'} below`;
+    lead = `<p>${esc(screened)} It carries ${esc(listAnd(res.links.map(l => `the ${LINK_WORD[l.kind]} ${l.value}`)))}, ${leads}.</p><pre class="chain">${esc(res.links.flatMap(chainLines).join('\n'))}</pre>`;
   } else {
     // one line per search step, with the screened value it tests
     const step = {'name agrees': `named ${a.customer_name}`, 'same type': a.entity_type==='Company' ? 'companies' : 'individuals',
                   'date of birth fits': `born ${a.dob}`, 'country fits': `tied to ${a.country}`, 'city fits': `in ${a.city}`};
     const chain = ['alert ──no account, login or email──▶ name search', ...res.funnel.map(f => `  ──▶ ${f.n} ${step[f.label] || f.label}`)].join('\n');
-    lead = `<p>The alert carries no account, login or email. So the rules say: search every customer by name, then keep the records that fit what was screened. The table shows the records with the name, best fit first.</p><pre class="chain">${esc(chain)}</pre>`;
+    lead = `<p>${esc(screened)} It carries no account, login or email. So the rules say: search every customer by name, then keep the records that fit. The table shows the records with the name, best fit first.</p><pre class="chain">${esc(chain)}</pre>`;
   }
-  return `<li class="step"><h3>Account of the alert</h3>${lead}${table(head, [screenedRow + candRows(c, base, chosen) + moreRow])}</li>`;
+  return `<li class="step"><h3>Account of the alert</h3>${lead}${table(head, [candRows(c, base, chosen) + moreRow])}</li>`;
 }
 
 /* ---------------- step 2: same person, other records ---------------- */
@@ -380,10 +385,10 @@ function stepIdentity(c, p){
   const noteQuote = v && v.kind==='note' ? `<blockquote>${esc(v.text)}</blockquote>` : '';
   const other = p.notes.filter(n => n.channel!=='kyc');
   const withCountry = other.filter(n => p.countries.some(x=>x.src===`${n.note_id} note`));
-  const lead = v ? `<p>The rules trust the most recent <b>approved</b> identity check most, over the record and the screened name. Rejected or expired checks are not evidence.${v.kind==='note'?' Here that check sits in a support note, not the KYC tab.':''}</p>`
+  const lead = v ? (v.kind==='note' ? `<p>Here the latest approved check sits in a support note, not the KYC tab.</p>` : '')
                  : `<p>No approved identity check exists for this person. The record's own details are all there is.</p>`;
   const notesBlock = other.length ? `<div class="sub"><h4>Other notes</h4>${withCountry.length ? `<ul class="notes-list">${withCountry.map(n=>`<li><span class="mono">${esc(n.note_id)}</span> · ${esc(n.created_at)} · ${esc(n.channel)}<br>${markCountries(n.text, p.countries.filter(x=>x.src===`${n.note_id} note`).map(x=>x.c))}</li>`).join('')}</ul><p class="small muted">Places the notes say they lived count as countries tied to the customer.</p>` : ''}${other.length-withCountry.length ? `<p class="small muted">${plural(other.length-withCountry.length,'routine note')} with no place in it (card issues, statements and the like).</p>` : ''}</div>` : '';
-  return `<li class="step"><h3>Check who they really are</h3>${lead}${p.checks.length ? table(['Check','Where','Provider','Name','Born','Document','Country','Date','Result'],[rows]) : ''}${noteQuote}${notesBlock}<span class="where">Onboarding → KYC checks · Notes (by email)</span></li>`;
+  return `<li class="step"><h3>Check what the KYC says</h3>${lead}${p.checks.length ? table(['Check','Where','Provider','Name','Born','Document','Country','Date','Result'],[rows]) : ''}${noteQuote}${notesBlock}<span class="where">Onboarding → KYC checks · Notes (by email)</span></li>`;
 }
 
 /* ---------------- step 4: the hit ---------------- */
