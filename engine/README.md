@@ -28,9 +28,9 @@ python -m unittest discover tests                              # rules from the 
 | | |
 |---|---|
 | Hits | 819: 455 DIFFERENT_ENTITY, 243 REVIEW, 121 SAME_ENTITY |
-| Alerts | 169 cleared, 167 review, 104 escalate |
+| Alerts | 169 DIFFERENT_ENTITY (every hit cleared), 167 REVIEW, 104 SAME_ENTITY (at least one hit is the customer) |
 | Practice labels | decision 50/50, reason 50/50, customer 50/50, evidence precision 100% / recall 100% |
-| Customers wrongly cleared | 0 |
+| SAME_ENTITY predicted as DIFFERENT_ENTITY | 0 |
 
 Fifty labels is a small answer key, so expect some misses on the unseen set. REVIEW is the safe
 outcome: the engine only clears on a contradiction and only confirms on agreement.

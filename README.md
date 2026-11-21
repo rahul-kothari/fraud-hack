@@ -14,9 +14,10 @@ python prepare.py --xlsx "../Screening Dev Set - browse.xlsx"
 python -m screening.pipeline --casebook ../visual/decisions.js
 ```
 
-The second command writes `visual/decisions.js`, which the casebook shows as a separate layer: an
-outcome per alert, a decision panel per hit, and outcome filters. Untick "Show engine decisions" in the
-sidebar to work a case without seeing them.
+The second command writes `visual/decisions.js`, which the casebook shows as a separate layer. Every
+case opens with a table of each hit's predicted result (decision and reason code) beside its true
+result from the practice labels. There is also a full panel per hit and filters by predicted result.
+Untick "Show predicted results" in the sidebar to work a case blind.
 
 ## visual/
 

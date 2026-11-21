@@ -146,16 +146,16 @@ tr.keep .c-ok,tr.pick .c-acc{background:var(--panel)}
 .tl .guide{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3}
 
 /* answer key */
-.key{border:1px dashed var(--warn);border-radius:10px;padding:14px 18px;display:grid;gap:10px}
-.key button{justify-self:start;border:1px solid var(--warn);background:var(--warn-soft);color:var(--fg);border-radius:6px;padding:6px 14px;cursor:pointer}
-.key dl{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:.88rem}
-.key dt{color:var(--muted);font-family:var(--f-mono);font-size:.74rem;padding-top:2px}
-.key dd{margin:0;overflow-wrap:anywhere}
+section..key{border:1px dashed var(--warn);border-radius:10px;padding:14px 18px;display:grid;gap:10px}
+section..key button{justify-self:start;border:1px solid var(--warn);background:var(--warn-soft);color:var(--fg);border-radius:6px;padding:6px 14px;cursor:pointer}
+section..key dl{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:.88rem}
+section..key dt{color:var(--muted);font-family:var(--f-mono);font-size:.74rem;padding-top:2px}
+section..key dd{margin:0;overflow-wrap:anywhere}
 
 /* engine decisions (decisions.js, written by engine/) */
 .dc{display:inline-block;font-family:var(--f-mono);font-size:.7rem;font-weight:500;padding:1px 7px;border-radius:4px;white-space:nowrap;vertical-align:1px}
-.dc-SAME_ENTITY,.dc-ESCALATE{background:var(--bad-soft);color:var(--bad)}
-.dc-DIFFERENT_ENTITY,.dc-CLEARED{background:var(--ok-soft);color:var(--ok)}
+.dc-SAME_ENTITY{background:var(--bad-soft);color:var(--bad)}
+.dc-DIFFERENT_ENTITY{background:var(--ok-soft);color:var(--ok)}
 .dc-REVIEW{background:var(--warn-soft);color:var(--warn)}
 .verdict{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--off);border-radius:10px;padding:16px 20px;display:grid;gap:12px}
 .verdict.v-SAME_ENTITY{border-left-color:var(--bad)}
@@ -170,10 +170,13 @@ tr.keep .c-ok,tr.pick .c-acc{background:var(--panel)}
 .verdict dd{margin:0;overflow-wrap:anywhere}
 .verdict ol{margin:0;padding-left:20px;display:grid;gap:3px;font-family:var(--f-mono);font-size:.76rem}
 .idchip{display:inline-block;font-family:var(--f-mono);font-size:.74rem;background:var(--accent-soft);color:var(--accent);border-radius:4px;padding:0 6px;margin:1px 3px 1px 0}
-.outcome{border-radius:8px;padding:9px 14px;font-size:.9rem;max-width:76ch;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
-.outcome.o-ESCALATE{background:var(--bad-soft)}
-.outcome.o-CLEARED{background:var(--ok-soft)}
-.outcome.o-REVIEW{background:var(--warn-soft)}
+.results{display:grid;gap:8px}
+.results .sum{font-size:.9rem}
+.results td{vertical-align:middle}
+.results .rc{display:block;font-family:var(--f-mono);font-size:.74rem;color:var(--muted);margin-top:2px}
+.results tr.cur td{background:var(--accent-soft)}
+.results .nolabel{color:var(--muted);font-size:.82rem}
+.reasonline{font-family:var(--f-mono);font-size:.95rem}
 .mini.cited{background:var(--accent-soft);color:var(--accent)}
 .toggle{display:flex;gap:8px;align-items:center;font-size:.85rem}
 .engine-off .eng{display:none !important}
@@ -202,7 +205,7 @@ mark{background:var(--warn-soft);color:var(--fg);border-radius:3px;padding:0 2px
       <div id="meta" class="muted small">Track 1 dev set</div>
       <label for="q" class="muted small">Find an alert</label>
       <input id="q" type="search" placeholder="Alert ID, customer or hit name" autocomplete="off">
-      <label class="toggle" id="engtoggle" hidden><input type="checkbox" id="showeng" checked> Show engine decisions</label>
+      <label class="toggle" id="engtoggle" hidden><input type="checkbox" id="showeng" checked> Show predicted results</label>
       <div id="engmeta" class="small muted eng" hidden></div>
       <div class="filters" role="group" aria-label="Filter alerts" id="filters"></div>
       <p id="filterhelp" class="small muted"></p>
@@ -213,7 +216,7 @@ mark{background:var(--warn-soft);color:var(--fg);border-radius:3px;padding:0 2px
           <p>The bank checks every customer's name against watchlists. When a name comes close, it raises an <b>alert</b> about that customer. Each list entry that matched is a <b>hit</b>. You decide, hit by hit: is this the same person as our customer?</p>
           <p>Each case shows the two sides, then the steps from the rules: find the customer and all their records, check their verified identity, read the hit, compare.</p>
           <p>Coloured chips are <b>hints</b>: mechanical checks of single rules. They never add up to a decision. Practice-label cases have the answer key behind a button.</p>
-          <p>When <span class="mono">decisions.js</span> is present, each hit also shows the <b>engine's decision</b>: the rules engine in <span class="mono">engine/</span> applies the whole SOP and gives a decision, reason codes, the customer record and the evidence it relied on. Untick “Show engine decisions” to work a case without seeing it.</p>
+          <p>When <span class="mono">decisions.js</span> is present, each hit also shows the <b>predicted result</b>: the rules engine in <span class="mono">engine/</span> applies the whole SOP and gives a decision, reason codes, the customer record and the evidence it relied on. Untick “Show predicted results” to work a case blind: the predicted and true results at the top are hidden, and the answer key stays behind its button.</p>
         </div>
       </details>
       <details>
@@ -235,17 +238,17 @@ const S = {data:null, filter:'all', q:'', id:null, hit:0, person:0};
 const ENG = window.DECISIONS || null;    // set by decisions.js (engine/), optional
 const engHit = id => ENG && ENG.hits[id];
 const engAlert = id => ENG && ENG.alerts[id];
-const DEC_WORD = {SAME_ENTITY:'same', DIFFERENT_ENTITY:'different', REVIEW:'review'};
-const OUT_WORD = {ESCALATE:'escalate', CLEARED:'cleared', REVIEW:'review'};
-const dchip = (k, word) => `<span class="dc dc-${esc(k)}">${esc(word ?? k)}</span>`;
+const dchip = (k, text) => `<span class="dc dc-${esc(k)}">${esc(text ?? k)}</span>`;
+const splitCodes = v => Array.isArray(v) ? v : String(v ?? '').split(';').map(x => x.trim()).filter(Boolean);
+const codes = xs => splitCodes(xs).map(esc).join(' · ');
 const hitIds = it => (S.data.cases[it.id]?.hits || []).map(h => h.id);
 const disagrees = v => v && !(v.decision && v.reason && v.customer);
 const keyMismatch = it => ENG && hitIds(it).some(h => disagrees(engHit(h)?.vs_label));
 const ENG_FILTERS = ENG ? [
-  ['escalate','Engine: escalate', it => engAlert(it.id)==='ESCALATE', 'The engine says at least one hit is the customer. The alert goes to compliance.'],
-  ['review','Engine: review', it => engAlert(it.id)==='REVIEW', 'No hit is confirmed, but at least one needs a person to look at it.'],
-  ['cleared','Engine: cleared', it => engAlert(it.id)==='CLEARED', 'The engine clears every hit: each is a different person or company.'],
-  ['mismatch','Engine ≠ key', keyMismatch, 'Practice-label hits where the engine disagrees with the answer key.'],
+  ['p-same','Predicted SAME_ENTITY', it => hitIds(it).some(h => engHit(h)?.decision==='SAME_ENTITY'), 'At least one hit is predicted SAME_ENTITY. The alert goes to the compliance team.'],
+  ['p-review','Predicted REVIEW', it => hitIds(it).some(h => engHit(h)?.decision==='REVIEW'), 'At least one hit is predicted REVIEW: a person needs to look at it.'],
+  ['p-diff','Predicted DIFFERENT_ENTITY', it => engAlert(it.id)==='DIFFERENT_ENTITY', 'Every hit is predicted DIFFERENT_ENTITY, so the alert is cleared.'],
+  ['mismatch','Predicted ≠ true', keyMismatch, 'Practice-label hits where the predicted result differs from the true result.'],
 ] : [];
 const FILTERS = [
   ['all','All', it => true, ''],
@@ -294,7 +297,7 @@ function renderList(){
   $('#count').textContent = `${items.length} of ${S.data.index.length} alerts`;
   $('#list').innerHTML = items.map(it => `<li><a href="#${esc(it.id)}" ${it.id===S.id?'aria-current="true"':''}>
     <span class="li-name">${esc(it.name)}</span>
-    <span class="li-meta">${showEng() && engAlert(it.id) ? dchip(engAlert(it.id), OUT_WORD[engAlert(it.id)]) + ' ' : ''}${esc(it.id)} · ${plural(it.hits,'hit')}${it.link==='search'?' · no link':''}${it.type==='Company'?' · company':''}${it.people>1?` · ${it.people} people`:''}${it.label?' · <span class="li-key">answer key</span>':''}</span></a></li>`).join('')
+    <span class="li-meta">${showEng() && engAlert(it.id) ? dchip(engAlert(it.id)) + ' ' : ''}${esc(it.id)} · ${plural(it.hits,'hit')}${it.link==='search'?' · no link':''}${it.type==='Company'?' · company':''}${it.people>1?` · ${it.people} people`:''}${it.label?' · <span class="li-key">answer key</span>':''}</span></a></li>`).join('')
     || '<li class="empty">No alerts match. Clear the search or pick another filter.</li>';
 }
 
@@ -522,26 +525,35 @@ function engineDecision(c, h){
   const cust = !e.customer_record_ids.length ? 'none found (screened details only)'
     : e.customer_record_ids[0]==='AMBIGUOUS' ? `AMBIGUOUS: ${c.people.length} people fit; the hit was decided for each` : ids(e.customer_record_ids);
   const how = e.methods && e.methods.length ? `<dt>extraction</dt><dd>${esc(e.methods.join(', '))}</dd>` : '';
-  return `<section class="verdict v-${esc(e.decision)} eng" aria-label="Engine decision">
-    <div class="eyebrow">Engine decision · ${esc(h.id)}</div>
+  return `<section class="verdict v-${esc(e.decision)} eng" aria-label="Predicted result">
+    <div class="eyebrow">Predicted result · ${esc(h.id)}</div>
     <div class="big">${esc(e.decision)}</div>
+    <div class="reasonline">Reason code: <b>${esc(e.reason_codes[0])}</b>${e.reason_codes.length>1?` <span class="muted">(also ${codes(e.reason_codes.slice(1))})</span>`:''}</div>
     <p>${esc(e.reason)}</p>
-    <dl><dt>reason codes</dt><dd>${e.reason_codes.map(r => `<span class="mono">${esc(r)}</span>`).join(', ')}</dd>
-      <dt>customer</dt><dd>${cust}</dd>
+    <dl><dt>customer</dt><dd>${cust}</dd>
       <dt>evidence</dt><dd>${ids(e.evidence)}</dd>${how}</dl>
     <details><summary class="small">The path it followed (${e.path.length} steps)</summary><ol>${e.path.map(s => `<li>${esc(s)}</li>`).join('')}</ol></details>
     <p class="hintnote">Made by the rules engine in <span class="mono">engine/</span>, which applies the whole SOP. The hints above are separate single-rule checks.${c.people.length>1?' With several people, the engine decides the hit for each and combines them.':''}</p>
   </section>`;
 }
-function alertOutcome(c){
+function resultsTable(c, cur){
+  if (!showEng() || !c.hits.some(h => engHit(h.id))) return '';
   const o = engAlert(c.alert.alert_id);
-  if (!showEng() || !o) return '';
-  const ds = c.hits.map(h => engHit(h.id)?.decision).filter(Boolean);
-  const n = k => ds.filter(d => d===k).length;
-  const why = o==='ESCALATE' ? `${n('SAME_ENTITY')} of ${ds.length} hits ${n('SAME_ENTITY')===1?'is':'are'} the customer. The alert goes to compliance.`
-    : o==='CLEARED' ? `Every hit is a different ${c.alert.entity_type==='Company'?'company':'person'}. The alert is cleared.`
-    : `${n('REVIEW')} of ${ds.length} hits need${n('REVIEW')===1?'s':''} a person to decide. No hit is confirmed.`;
-  return `<p class="outcome o-${esc(o)} eng"><b>Engine: ${esc(OUT_WORD[o])}</b><span>${esc(why)}</span></p>`;
+  const rows = c.hits.map(h => {
+    const e = engHit(h.id), l = h.label;
+    const pred = e ? `${dchip(e.decision)}<span class="rc">${codes(e.reason_codes)}</span>` : '—';
+    const truth = l ? `${dchip(l.decision)}<span class="rc">${codes(l.reason_codes)}</span>` : '<span class="nolabel">no practice label</span>';
+    const v = e?.vs_label;
+    const mk = (ok, w) => `<span class="mini ${ok?'ok':'bad'}">${w} ${ok?'✓':'✗'}</span>`;
+    const match = v ? mk(v.decision,'decision') + mk(v.reason,'reason') + mk(v.customer,'customer') : '<span class="muted">—</span>';
+    return `<tr class="${h===cur && c.hits.length>1 ? 'cur' : ''}"><td><span class="mono">${esc(h.id)}</span><br><span class="small">${esc(h.row.name)}</span></td><td>${pred}</td><td>${truth}</td><td>${match}</td></tr>`;
+  });
+  const n = k => c.hits.filter(h => engHit(h.id)?.decision===k).length;
+  const sum = o==='SAME_ENTITY' ? `${n('SAME_ENTITY')} of ${c.hits.length} ${c.hits.length===1?'hit':'hits'} predicted SAME_ENTITY, so the alert goes to the compliance team.`
+    : o==='DIFFERENT_ENTITY' ? `Every hit is predicted DIFFERENT_ENTITY, so the alert is cleared.`
+    : `${n('REVIEW')} of ${c.hits.length} ${c.hits.length===1?'hit':'hits'} predicted REVIEW and none SAME_ENTITY, so a person looks at it.`;
+  return `<section class="results eng" aria-label="Predicted and true results"><p class="sum">Alert result: ${dchip(o)} ${esc(sum)}</p>
+    ${table(['Hit','Predicted (engine)','True (practice label)','Match'], rows)}</section>`;
 }
 /* where a cited record appears in the steps, mark it */
 const cited = (h, id) => showEng() && engHit(h.id)?.evidence.includes(id) ? ' <span class="mini cited eng">cited</span>' : '';
@@ -552,7 +564,7 @@ function answerKey(h){
   const l = h.label;
   const v = showEng() && engHit(h.id)?.vs_label;
   const tick = (ok, w) => `<span class="mini ${ok?'ok':'bad'}">${w} ${ok?'✓':'✗'}</span>`;
-  const vs = v ? `<dt>engine vs key</dt><dd class="vskey eng">${tick(v.decision,'decision')}${tick(v.reason,'reason')}${tick(v.customer,'customer')}<span class="small muted">evidence ${Math.round(v.evidence_precision*100)}% precise, ${Math.round(v.evidence_recall*100)}% complete</span></dd>` : '';
+  const vs = v ? `<dt>predicted vs true</dt><dd class="vskey eng">${tick(v.decision,'decision')}${tick(v.reason,'reason')}${tick(v.customer,'customer')}<span class="small muted">evidence ${Math.round(v.evidence_precision*100)}% precise, ${Math.round(v.evidence_recall*100)}% complete</span></dd>` : '';
   return `<section class="key" aria-label="Answer key"><h2>Answer key</h2><p class="small">This hit is one of the 50 practice labels. Try it yourself first.</p>
     <button type="button" data-reveal>Show the answer key</button>
     <div id="keybody" hidden><dl><dt>decision</dt><dd><b>${esc(l.decision)}</b></dd><dt>reason codes</dt><dd>${esc(l.reason_codes)}</dd><dt>customer</dt><dd>${esc(l.customer_record_ids)}</dd><dt>evidence</dt><dd>${esc(l.evidence)}</dd><dt>reason</dt><dd>${esc(l.reference_reason)}</dd><dt>path</dt><dd>${esc(l.path)}</dd>${vs}</dl></div></section>`;
@@ -592,13 +604,14 @@ function renderCase(){
   const flags = [];
   if (people.length>1) flags.push(`<p class="flag warn">${people.length} people fit this alert. The rules say: decide the hit for each person. If they lead to different decisions, the answer is REVIEW with AMBIGUOUS_CUSTOMER_RECORD.</p>`);
   if (!people.length) flags.push(`<p class="flag bad">No customer record fits this alert. The comparison below uses the screened details only.</p>`);
-  const hitTabs = hits.length>1 ? `<div class="tabrow"><span class="eyebrow">Hits on this alert</span><div class="tabs">${hits.map((x,i)=>`<button type="button" data-hit="${i}" aria-pressed="${x===h}"><span class="t1">${esc(x.row.name)}</span><span class="t2">${showEng() && engHit(x.id) ? dchip(engHit(x.id).decision, DEC_WORD[engHit(x.id).decision]) + ' ' : ''}${esc(x.id)} · ${esc(x.category||'')} · score ${esc(x.row.match_score)}${x.label?' · key':''}</span></button>`).join('')}</div></div>` : '';
+  const hitTabs = hits.length>1 ? `<div class="tabrow"><span class="eyebrow">Hits on this alert</span><div class="tabs">${hits.map((x,i)=>`<button type="button" data-hit="${i}" aria-pressed="${x===h}"><span class="t1">${esc(x.row.name)}</span><span class="t2">${showEng() && engHit(x.id) ? dchip(engHit(x.id).decision) + ' ' + esc(engHit(x.id).reason_codes[0]) + ' · ' : ''}${esc(x.id)} · ${esc(x.category||'')} · score ${esc(x.row.match_score)}${x.label?' · key':''}</span></button>`).join('')}</div></div>` : '';
   const personTabs = people.length>1 ? `<div class="tabrow"><span class="eyebrow">People who fit</span><div class="tabs">${people.map((x,i)=>`<button type="button" data-person="${i}" aria-pressed="${i===pi}"><span class="t1">${esc(x.name)}</span><span class="t2">${esc(x.records.join(', '))}</span></button>`).join('')}</div></div>` : '';
   main.innerHTML = `<div class="case">
     <header class="ch"><div class="eyebrow">${esc(a.alert_id)} · screened ${esc(a.screened_at)} · ${plural(hits.length,'hit')} · ${c.resolution.mode==='linked'?'linked by '+esc(c.resolution.links.map(l=>l.kind.replace('_',' ')).join(', ')):'no link'} ${hits.some(x=>x.label)?'<span class="badge key">answer key</span>':''}</div>
       <h1>${esc(q)}</h1>
       <p class="lede">The bank raised this alert when the ${isCo?'company':'customer'}'s name came close to a watchlist entry. For each hit, decide: is this the same ${isCo?'company':'person'}?</p>
-      ${alertOutcome(c)}${flags.join('')}</header>
+      ${flags.join('')}</header>
+    ${resultsTable(c, h)}
     ${hitTabs}${personTabs}
     <section><h2 style="margin-bottom:12px">The two sides</h2>
       <div class="duo">${custCard(c,p)}<div class="vs">Same<br>${isCo?'entity':'person'}?</div>${hitCard(h)}</div></section>
@@ -658,8 +671,9 @@ if (d) {
   if (ENG) {
     const m = ENG.meta, L = m.labels || {};
     $('#engtoggle').hidden = false; $('#engmeta').hidden = false;
-    $('#engmeta').innerHTML = `Engine (${esc(m.engine)}, built ${esc(m.built)}): ${dchip('ESCALATE', m.outcomes.ESCALATE+' escalate')} ${dchip('REVIEW', m.outcomes.REVIEW+' review')} ${dchip('CLEARED', m.outcomes.CLEARED+' cleared')} alerts`
-      + (L.scored ? `<br>Answer key: ${L.decision}/${L.scored} decisions match, ${L.worst.length} customers wrongly cleared` : '');
+    const dd = m.decisions || {};
+    $('#engmeta').innerHTML = `Predicted hits (engine, ${esc(m.engine)}):<br>${['SAME_ENTITY','REVIEW','DIFFERENT_ENTITY'].map(k => dchip(k, `${dd[k]||0} ${k}`)).join(' ')}`
+      + (L.scored ? `<br>Against the ${L.scored} practice labels: ${L.decision}/${L.scored} decisions and ${L.reason}/${L.scored} reason codes match; ${L.worst.length} SAME_ENTITY predicted DIFFERENT_ENTITY.` : '');
     let off = false;
     try { off = localStorage.getItem('casebook-engine') === 'off'; } catch (e) {}
     $('#showeng').checked = !off;

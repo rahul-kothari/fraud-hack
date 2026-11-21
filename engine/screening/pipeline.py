@@ -50,11 +50,12 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
 
 
 def alert_outcome(decisions: list[str]) -> str:
-    """POLICY: an alert is cleared only when every hit is DIFFERENT_ENTITY; any SAME_ENTITY goes to compliance."""
+    """The alert's result, in the hits' own terms (POLICY): SAME_ENTITY if any hit is the customer
+    (the alert goes to compliance); DIFFERENT_ENTITY only when every hit is cleared; otherwise REVIEW."""
     if "SAME_ENTITY" in decisions:
-        return "ESCALATE"
-    if all(d == "DIFFERENT_ENTITY" for d in decisions):
-        return "CLEARED"
+        return "SAME_ENTITY"
+    if decisions and all(d == "DIFFERENT_ENTITY" for d in decisions):
+        return "DIFFERENT_ENTITY"
     return "REVIEW"
 
 
@@ -83,7 +84,8 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
     data = {
         "meta": {"built": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "engine": engine,
                  "hits": len(rows), "alerts": len(alerts), "decisions": counts,
-                 "outcomes": {k: list(outcomes.values()).count(k) for k in ("CLEARED", "REVIEW", "ESCALATE")},
+                 "alert_results": {k: list(outcomes.values()).count(k)
+                                   for k in ("DIFFERENT_ENTITY", "REVIEW", "SAME_ENTITY")},
                  "labels": s},
         "hits": hits, "alerts": outcomes,
     }
