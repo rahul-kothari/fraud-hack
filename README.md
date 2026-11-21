@@ -2,13 +2,30 @@
 
 Tools for Track 1, "Same Person or Not?", of the GB FinCrime hackathon (November 2026).
 
+## engine/
+
+A rules engine that decides every hit (`DIFFERENT_ENTITY`, `SAME_ENTITY` or `REVIEW`) with reason codes,
+customer record and evidence, by applying the SOP. On the 50 practice labels it matches every
+decision, reason code, customer record and evidence citation. See [`engine/README.md`](engine/README.md).
+
+```
+cd engine
+python prepare.py --xlsx "../Screening Dev Set - browse.xlsx"
+python -m screening.pipeline --casebook ../visual/decisions.js
+```
+
+The second command writes `visual/decisions.js`, which the casebook shows as a separate layer: an
+outcome per alert, a decision panel per hit, and outcome filters. Untick "Show engine decisions" in the
+sidebar to work a case without seeing them.
+
 ## visual/
 
-A casebook of every screening alert in the dev set. Each alert is laid out as a story: the customer and the watchlist hit side by side, the SOP's steps to an answer, a hint for each rule, and the raw rows. The hints are mechanical checks of single rules. The casebook makes no decisions.
+A casebook of every screening alert in the dev set. Each alert is laid out as a story: the customer and the watchlist hit side by side, the SOP's steps to an answer, a hint for each rule, and the raw rows. The hints are mechanical checks of single rules. The casebook itself makes no decisions. The engine's decisions are a separate, optional layer.
 
 - `build_casebook.py` reads the dev-set workbook and writes `data.js`.
-- `casebook.html` is the page. It loads `data.js` from the same folder.
+- `casebook.html` is the page. It loads `data.js` from the same folder, and `decisions.js` if present.
 - `data.js` is the built data, so the page works straight from a clone.
+- `decisions.js` holds the engine's decisions (written by `engine/`). Without it the page shows only the hints.
 
 ### View
 
