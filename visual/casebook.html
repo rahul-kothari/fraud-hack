@@ -46,36 +46,36 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .topnav a:hover{color:var(--fg)}
 .topnav a[aria-current=page]{color:var(--accent);background:var(--accent-soft)}
 .soon{display:inline-block;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:99px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px}
-.page{max-width:1020px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
+.page{max-width:1340px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
 .ov-head{display:grid;gap:18px;justify-items:center;text-align:center;padding-top:24px}
 .ov-head h1{font-size:2.4rem;max-width:22ch}
 .ov-words{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
 .ov-words span{font-family:var(--f-display);font-size:1.15rem;font-weight:600;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);padding:6px 18px;border-radius:99px}
 .ov-diagram{overflow-x:auto}
-.ov-diagram svg{display:block;width:100%;min-width:640px;height:auto}
+.ov-diagram svg{display:block;width:100%;min-width:760px;height:auto}
 .ov-box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
 .ov-ai{fill:var(--accent-soft);stroke:var(--accent)}
-.ov-title{fill:var(--fg);font-family:var(--f-display);font-weight:600;font-size:22px}
+.ov-title{fill:var(--fg);font-family:var(--f-display);font-weight:600;font-size:26px}
 .ov-sub{fill:var(--muted);font-family:var(--f-body);font-size:15px;text-anchor:middle}
 .ov-q{fill:var(--bg);stroke:var(--muted);stroke-width:1.3}
-.ov-qt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px;text-anchor:middle}
+.ov-qt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:17px;text-anchor:middle}
 .ov-leaf{stroke-width:1.3}
-.ov-lt{font-family:var(--f-mono);font-weight:500;font-size:13px;text-anchor:middle}
+.ov-lt{font-family:var(--f-mono);font-weight:500;font-size:14px;text-anchor:middle}
 .ov-d{fill:var(--ok-soft);stroke:var(--ok)} .ov-d + .ov-lt{fill:var(--ok)}
 .ov-s{fill:var(--bad-soft);stroke:var(--bad)} .ov-s + .ov-lt{fill:var(--bad)}
 .ov-r{fill:var(--warn-soft);stroke:var(--warn)} .ov-r + .ov-lt{fill:var(--warn)}
-.ov-yn{fill:var(--muted);font-family:var(--f-mono);font-size:13px;text-anchor:middle}
+.ov-yn{fill:var(--muted);font-family:var(--f-mono);font-size:15px;text-anchor:middle}
 .ov-edge{fill:none;stroke:var(--muted);stroke-width:1.6}
 .ov-tip{fill:var(--muted)}
 .ov-loop{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:7 5}
 .ov-tip-ai{fill:var(--accent)}
 .ov-loopt{fill:var(--accent);font-family:var(--f-display);font-weight:600;font-size:16px;text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:8px}
 .ov-axis{stroke:var(--line);stroke-width:1.5}
-.ov-bl{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px}
+.ov-bl{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:19px}
 .ov-pos{fill:var(--bad)}
 .ov-neg{fill:var(--ok)}
 .ov-dot{fill:var(--accent)}
-.ov-pt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px}
+.ov-pt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:19px}
 .app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100vh - var(--nav-h))}
 .side{position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px));height:calc(100vh - var(--nav-h) - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--side);border-right:1px solid var(--line);min-width:0}
 .side-head{padding:20px 16px 12px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
@@ -611,51 +611,52 @@ function renderCase(){
 /* ---------------- overview (cover page) ---------------- */
 function overviewPage(){
   const arrow = (d, cls = 'ov-edge') => `<path class="${cls}" d="${d}" marker-end="url(#${cls === 'ov-loop' ? 'ov-arrow-ai' : 'ov-arrow'})"/>`;
-  const node = (cx, cy, w, text, cls) => `<rect class="${cls}" x="${cx - w / 2}" y="${cy - 19}" width="${w}" height="38" rx="${cls === 'ov-q' ? 19 : 8}"/>
-    <text class="${cls === 'ov-q' ? 'ov-qt' : 'ov-lt'}" x="${cx}" y="${cy + 5}">${text}</text>`;
+  const node = (cx, cy, w, text, cls) => `<rect class="${cls}" x="${cx - w / 2}" y="${cy - 22}" width="${w}" height="44" rx="${cls === 'ov-q' ? 22 : 9}"/>
+    <text class="${cls === 'ov-q' ? 'ov-qt' : 'ov-lt'}" x="${cx}" y="${cy + 6}">${text}</text>`;
   const lbl = (x, y, t) => `<text class="ov-yn" x="${x}" y="${y}">${t}</text>`;
-  const box = (x, title) => `<rect class="ov-box" x="${x}" y="20" width="340" height="300" rx="14"/>
-    <text class="ov-title" x="${x + 24}" y="56">${title}</text>`;
-  // evidence weighting: bars from an axis, 15px per unit of log-odds (weights from engine/screening/risk.py)
-  const AX = 640, U = 15;
-  const bar = (y, label, w) => `<text class="ov-bl" x="456" y="${y + 6}">${label}</text>
-    <rect class="${w > 0 ? 'ov-pos' : 'ov-neg'}" x="${w > 0 ? AX : AX + w * U}" y="${y - 11}" width="${Math.abs(w) * U}" height="22" rx="4"/>`;
-  const point = (y, text) => `<circle class="ov-dot" cx="866" cy="${y - 6}" r="5"/><text class="ov-pt" x="882" y="${y}">${text}</text>`;
+  const BOX_W = 400, BOX_H = 340, TOP = 20;
+  const box = (x, title) => `<rect class="ov-box" x="${x}" y="${TOP}" width="${BOX_W}" height="${BOX_H}" rx="16"/>
+    <text class="ov-title" x="${x + 28}" y="${TOP + 48}">${title}</text>`;
+  // evidence weighting: illustrative bars either side of an axis
+  const AX = 730, U = 28;
+  const bar = (y, label, w) => `<text class="ov-bl" x="502" y="${y + 6}">${label}</text>
+    <rect class="${w > 0 ? 'ov-pos' : 'ov-neg'}" x="${w > 0 ? AX : AX + w * U}" y="${y - 13}" width="${Math.abs(w) * U}" height="26" rx="5"/>`;
+  const point = (y, text) => `<circle class="ov-dot" cx="952" cy="${y - 6}" r="6"/><text class="ov-pt" x="970" y="${y}">${text}</text>`;
   return `<header class="ov-head">
       <h1>Assidous.AI</h1>
       <div class="ov-words"><span>Consistency</span><span>Explainability</span></div>
     </header>
-    <div class="ov-diagram"><svg viewBox="0 0 1200 420" role="img" aria-label="Policy decision tree, then evidence weighting, then AI review, which loops back to refine the policy decision tree">
+    <div class="ov-diagram"><svg viewBox="0 0 1340 450" role="img" aria-label="Policy decision tree, then evidence weighting, then AI review, which loops back to refine the policy decision tree">
       <defs>
         <marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="ov-arrow-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip-ai" d="M0,0 L10,5 L0,10 z"/></marker>
       </defs>
 
       ${box(20, '🌳 Policy Decision Tree')}
-      ${arrow('M190,129 L110,184')}${lbl(132, 150, 'yes')}
-      ${arrow('M190,129 L265,184')}${lbl(246, 150, 'no')}
-      ${arrow('M265,224 L210,264')}${lbl(225, 242, 'yes')}
-      ${arrow('M265,224 L308,264')}${lbl(300, 242, 'no')}
-      ${node(190, 110, 170, 'Contradiction?', 'ov-q')}
-      ${node(105, 205, 150, 'DIFFERENT_ENTITY', 'ov-leaf ov-d')}
-      ${node(265, 205, 140, 'Agreement?', 'ov-q')}
-      ${node(205, 284, 120, 'SAME_ENTITY', 'ov-leaf ov-s')}
-      ${node(312, 284, 84, 'REVIEW', 'ov-leaf ov-r')}
+      ${arrow('M220,153 L124,208')}${lbl(150, 172, 'yes')}
+      ${arrow('M220,153 L318,208')}${lbl(294, 172, 'no')}
+      ${arrow('M322,254 L254,294')}${lbl(268, 268, 'yes')}
+      ${arrow('M322,254 L366,294')}${lbl(366, 268, 'no')}
+      ${node(220, 131, 200, 'Contradiction?', 'ov-q')}
+      ${node(120, 232, 180, 'DIFFERENT_ENTITY', 'ov-leaf ov-d')}
+      ${node(322, 232, 150, 'Agreement?', 'ov-q')}
+      ${node(250, 318, 136, 'SAME_ENTITY', 'ov-leaf ov-s')}
+      ${node(370, 318, 84, 'REVIEW', 'ov-leaf ov-r')}
 
-      ${box(430, '⚖️ Evidence Weighting')}
-      <line class="ov-axis" x1="${AX}" y1="100" x2="${AX}" y2="250"/>
-      ${bar(125, 'Name', 2.5)}
-      ${bar(175, 'Birth date', 3.0)}
-      ${bar(225, 'Country', -2.7)}
+      ${box(470, '⚖️ Evidence Weighting')}
+      <line class="ov-axis" x1="${AX}" y1="118" x2="${AX}" y2="312"/>
+      ${bar(150, 'Name', 2.5)}
+      ${bar(215, 'Birth date', 3.0)}
+      ${bar(280, 'Country', -2.7)}
 
-      ${box(840, '🤖 AI review')}
-      ${point(125, 'Reads each case and its evidence')}
-      ${point(175, 'Flags edge cases')}
-      ${point(225, 'Suggests rule changes')}
+      ${box(920, '🤖 AI review')}
+      ${point(156, 'Reads each case and its evidence')}
+      ${point(221, 'Flags edge cases')}
+      ${point(286, 'Suggests rule changes')}
 
-      ${arrow('M360,170 H426')}
-      ${arrow('M770,170 H836')}
-      ${arrow('M1010,320 V390 H190 V324', 'ov-loop')}
+      ${arrow('M420,190 H466')}
+      ${arrow('M870,190 H916')}
+      ${arrow('M1120,360 V425 H220 V364', 'ov-loop')}
     </svg></div>`;
 }
 
