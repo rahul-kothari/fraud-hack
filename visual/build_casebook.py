@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Build data.json for casebook.html from the Track 1 dev-set workbook.
+"""Build data.js for casebook.html from the Track 1 dev-set workbook.
 
     python build_casebook.py --xlsx "../Screening Dev Set - browse.xlsx" \
-        --out data.json --cache .cache [--check]
+        --out data.js --cache .cache [--check]
 
 For every alert it:
   1. finds the customer: follows the alert's link, or searches all customers
@@ -513,6 +513,22 @@ class Casebook:
         return {k['document_number'] for a in self.applicants(rid) for k in self.kyc_by_app.get(a, [])
                 if k.get('result') == 'approved' and k.get('document_number')}
 
+    def raw_phone(self, rid, d):
+        """The phone as written on the record or its account, for display."""
+        for x in [self.cust[rid].get('phone')] + [a.get('phone') for a in self.acc_by_cust.get(rid, [])]:
+            if digits(x) == d:
+                return x
+        return d
+
+    def doc_check(self, rid, doc):
+        """The approved KYC check of rid that carries document number doc."""
+        for app in self.applicants(rid):
+            for k in self.kyc_by_app.get(app, []):
+                if k.get('result') == 'approved' and k.get('document_number') == doc:
+                    return {'app': app, 'check': k.get('check_id'), 'type': k.get('document_type'),
+                            'country': k.get('document_country')}
+        return None
+
     def screened_fit(self, rid, a):
         """Does this record fit what was screened? SOP principle 2."""
         c = self.cust[rid]
@@ -552,13 +568,15 @@ class Casebook:
                         if o not in members and full(self.dob_cache.get(o)) == dob:
                             members.add(o)
                             queue.append(o)
-                            edges.append({'a': r, 'b': o, 'why': 'same phone and same full date of birth'})
+                            edges.append({'a': r, 'b': o, 'why': 'same phone and same full date of birth',
+                                          'phone': [self.raw_phone(r, p), self.raw_phone(o, p)]})
             for doc in sorted(self.approved_docs(r)):
                 for o in sorted(self.doc_to_cust.get(doc, ())):
                     if o not in members:
                         members.add(o)
                         queue.append(o)
-                        edges.append({'a': r, 'b': o, 'why': f'same document number {doc} on approved checks'})
+                        edges.append({'a': r, 'b': o, 'why': f'same document number {doc} on approved checks',
+                                      'doc': doc, 'checks': [self.doc_check(r, doc), self.doc_check(o, doc)]})
         return members, edges
 
     def name_search(self, a):
@@ -630,7 +648,8 @@ class Casebook:
             for p in self.phones(r):
                 for o in sorted(self.phone_idx[p]):
                     if o not in rec_set and o not in {f['rid'] for f in family}:
-                        family.append({'rid': o, 'why': 'shares a phone number, different date of birth'})
+                        family.append({'rid': o, 'a': r, 'why': 'shares a phone number, different date of birth',
+                                       'phone': [self.raw_phone(r, p), self.raw_phone(o, p)]})
 
         countries = []
 
@@ -837,18 +856,23 @@ class Casebook:
     def build_alert(self, a):
         links = []
         seeds = []
+        # each link keeps its path (account, customer) so the page can draw the chain
+        hop = lambda rows: [{'account': x.get('account_id'), 'customer': x.get('customer_id')} for x in rows]
         if a.get('account_ref'):
-            links.append({'kind': 'account_ref', 'value': a['account_ref']})
-            seeds += [x['customer_id'] for x in self.acc_by_id.get(a['account_ref'], [])]
+            rows = self.acc_by_id.get(a['account_ref'], [])
+            links.append({'kind': 'account_ref', 'value': a['account_ref'], 'path': hop(rows)})
+            seeds += [x['customer_id'] for x in rows]
         if a.get('login_handle'):
-            links.append({'kind': 'login_handle', 'value': a['login_handle']})
-            seeds += [x['customer_id'] for x in self.acc_by_login.get(a['login_handle'], [])]
+            rows = self.acc_by_login.get(a['login_handle'], [])
+            links.append({'kind': 'login_handle', 'value': a['login_handle'], 'path': hop(rows)})
+            seeds += [x['customer_id'] for x in rows]
         if a.get('email'):
-            links.append({'kind': 'email', 'value': a['email']})
-            seeds += self.cust_by_email.get(a['email'], [])
+            custs = self.cust_by_email.get(a['email'], [])
+            links.append({'kind': 'email', 'value': a['email'], 'path': [{'account': None, 'customer': c} for c in custs]})
+            seeds += custs
         seeds = [s for s in dict.fromkeys(seeds) if s in self.cust]
 
-        res = {'links': links, 'candidates': [], 'funnel': None, 'near': [], 'note': None}
+        res = {'links': links, 'candidates': [], 'funnel': None, 'named_rows': [], 'named_total': 0, 'note': None}
         if links:
             res['mode'] = 'linked'
             res['candidates'] = [self.screened_fit(r, a) for r in seeds]
@@ -884,7 +908,11 @@ class Casebook:
                 steps.append((label, cur))
             res['funnel'] = [{'label': l, 'n': len(x)} for l, x in steps]
             res['candidates'] = cur
-            res['near'] = [p for p in named if not p['fits'] and sum(v == 'no' for v in p['checks'].values()) == 1][:8]
+            # same-name records for the page's table: fits first, then fewest failed checks
+            fails = lambda p: sum(v == 'no' for v in p['checks'].values())
+            ranked = sorted(named, key=lambda p: (fails(p), p['rid']))
+            res['named_rows'] = ranked[:max(12, len(cur))]
+            res['named_total'] = len(named)
             groups, seen = [], set()
             for p in cur:
                 if p['rid'] not in seen:
@@ -907,7 +935,7 @@ class Casebook:
             hb['label'] = self.labels.get(hid)
             hits.append(hb)
 
-        rids = set(seeds) | {c['rid'] for c in res['candidates']} | {c['rid'] for c in res['near']}
+        rids = set(seeds) | {c['rid'] for c in res['candidates']} | {c['rid'] for c in res['named_rows']}
         for p in people:
             rids |= set(p['records']) | {f['rid'] for f in p['family']} | {c['rid'] for c in p['coholders']}
         return {'alert': a, 'resolution': res, 'people': people, 'hits': hits,
@@ -971,14 +999,17 @@ def check(book):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--xlsx', required=True, help='the dev-set workbook')
-    ap.add_argument('--out', default='data.json', help='where to write the page data')
+    ap.add_argument('--out', default='data.js', help='where to write the page data')
     ap.add_argument('--cache', help='folder for a fast-reload copy of the workbook')
     ap.add_argument('--check', action='store_true', help='test the plumbing against the practice labels')
     args = ap.parse_args()
 
     book = Casebook(load(args.xlsx, args.cache)).build()
+    # a script, not plain JSON: browsers block fetch() from file://, so this lets the page open with a double-click
     with open(args.out, 'w', encoding='utf-8') as f:
+        f.write('window.CASEBOOK = ')
         json.dump(book, f, ensure_ascii=False, separators=(',', ':'))
+        f.write(';\n')
     size = os.path.getsize(args.out) / 1e6
     print(f"Wrote {args.out}: {book['meta']['alerts']} alerts, {book['meta']['hits']} hits, {size:.1f} MB")
     if args.check:
