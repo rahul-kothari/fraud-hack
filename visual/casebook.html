@@ -54,11 +54,22 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ov-diagram{overflow-x:auto}
 .ov-diagram svg{display:block;width:100%;min-width:640px;height:auto}
 .ov-box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
-.ov-core{fill:var(--accent-soft);stroke:var(--accent)}
-.ov-t{fill:var(--fg);font-family:var(--f-display);font-weight:600;font-size:20px;text-anchor:middle}
-.ov-s{fill:var(--muted);font-family:var(--f-body);font-size:14px;text-anchor:middle}
+.ov-ai{fill:var(--accent-soft);stroke:var(--accent)}
+.ov-title{fill:var(--fg);font-family:var(--f-display);font-weight:600;font-size:22px}
+.ov-sub{fill:var(--muted);font-family:var(--f-body);font-size:15px;text-anchor:middle}
+.ov-q{fill:var(--bg);stroke:var(--muted);stroke-width:1.3}
+.ov-qt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px;text-anchor:middle}
+.ov-leaf{stroke-width:1.3}
+.ov-lt{font-family:var(--f-mono);font-weight:500;font-size:13px;text-anchor:middle}
+.ov-d{fill:var(--ok-soft);stroke:var(--ok)} .ov-d + .ov-lt{fill:var(--ok)}
+.ov-s{fill:var(--bad-soft);stroke:var(--bad)} .ov-s + .ov-lt{fill:var(--bad)}
+.ov-r{fill:var(--warn-soft);stroke:var(--warn)} .ov-r + .ov-lt{fill:var(--warn)}
+.ov-yn{fill:var(--muted);font-family:var(--f-mono);font-size:13px;text-anchor:middle}
 .ov-edge{fill:none;stroke:var(--muted);stroke-width:1.6}
 .ov-tip{fill:var(--muted)}
+.ov-loop{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:7 5}
+.ov-tip-ai{fill:var(--accent)}
+.ov-loopt{fill:var(--accent);font-family:var(--f-display);font-weight:600;font-size:16px;text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:8px}
 .app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100vh - var(--nav-h))}
 .side{position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px));height:calc(100vh - var(--nav-h) - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--side);border-right:1px solid var(--line);min-width:0}
 .side-head{padding:20px 16px 12px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
@@ -593,28 +604,41 @@ function renderCase(){
 
 /* ---------------- overview (cover page) ---------------- */
 function overviewPage(){
-  // one arrow-tipped path; the marker is defined once in the svg
-  const arrow = d => `<path class="ov-edge" d="${d}" marker-end="url(#ov-arrow)"/>`;
-  const box = (x, y, w, h, title, sub, cls = '') => `<rect class="ov-box ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>
-    <text class="ov-t" x="${x + w / 2}" y="${y + (sub ? h / 2 - 4 : h / 2 + 6)}">${title}</text>${sub ? `<text class="ov-s" x="${x + w / 2}" y="${y + h / 2 + 18}">${sub}</text>` : ''}`;
+  const arrow = (d, cls = 'ov-edge') => `<path class="${cls}" d="${d}" marker-end="url(#${cls === 'ov-loop' ? 'ov-arrow-ai' : 'ov-arrow'})"/>`;
+  const node = (cx, cy, w, text, cls) => `<rect class="${cls}" x="${cx - w / 2}" y="${cy - 21}" width="${w}" height="42" rx="${cls === 'ov-q' ? 21 : 8}"/>
+    <text class="${cls === 'ov-q' ? 'ov-qt' : 'ov-lt'}" x="${cx}" y="${cy + 5}">${text}</text>`;
+  const lbl = (x, y, t) => `<text class="ov-yn" x="${x}" y="${y}">${t}</text>`;
   return `<header class="ov-head">
       <h1>Assidous.AI</h1>
       <div class="ov-words"><span>Consistency</span><span>Explainability</span></div>
     </header>
-    <div class="ov-diagram"><svg viewBox="0 0 1000 300" role="img" aria-label="An alert's customer and watchlist hit are compared by the identity SOP, which gives a decision with its reason and evidence, alongside a fraud-risk score">
-      <defs><marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip" d="M0,0 L10,5 L0,10 z"/></marker></defs>
-      ${box(10, 120, 130, 60, 'Alert', '')}
-      ${box(200, 40, 200, 80, 'Customer', 'records · KYC · notes')}
-      ${box(200, 180, 200, 80, 'Watchlist hit', 'profile · search results')}
-      ${box(460, 110, 180, 80, 'Identity SOP', 'the same rules, every hit', 'ov-core')}
-      ${box(700, 40, 290, 80, 'Decision', 'reason code · evidence cited')}
-      ${box(700, 180, 290, 80, 'Fraud risk', 'chance it is the customer (%)')}
-      ${arrow('M140,150 H170 V80 H196')}
-      ${arrow('M170,150 V220 H196')}
-      ${arrow('M400,80 H430 V140 H456')}
-      ${arrow('M400,220 H430 V160 H456')}
-      ${arrow('M640,150 H670 V80 H696')}
-      ${arrow('M670,150 V220 H696')}
+    <div class="ov-diagram"><svg viewBox="0 0 1000 400" role="img" aria-label="The decision tree sends each decision and its evidence to the AI reviewer, whose review loops back to refine the decision tree">
+      <defs>
+        <marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ov-arrow-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip-ai" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <rect class="ov-box" x="20" y="20" width="540" height="300" rx="14"/>
+      <text class="ov-title" x="44" y="56">Decision tree</text>
+      ${arrow('M290,121 L150,186')}${lbl(206, 146, 'yes')}
+      ${arrow('M290,121 L420,186')}${lbl(366, 146, 'no')}
+      ${arrow('M420,229 L330,264')}${lbl(360, 240, 'yes')}
+      ${arrow('M420,229 L490,264')}${lbl(470, 240, 'no')}
+      ${node(290, 100, 200, 'Contradiction?', 'ov-q')}
+      ${node(150, 207, 190, 'DIFFERENT_ENTITY', 'ov-leaf ov-d')}
+      ${node(420, 208, 180, 'Agreement?', 'ov-q')}
+      ${node(320, 285, 150, 'SAME_ENTITY', 'ov-leaf ov-s')}
+      ${node(490, 285, 110, 'REVIEW', 'ov-leaf ov-r')}
+
+      <rect class="ov-box ov-ai" x="660" y="100" width="320" height="140" rx="14"/>
+      <text class="ov-title" x="820" y="160" text-anchor="middle">AI reviewer</text>
+      <text class="ov-sub" x="820" y="188">checks each decision</text>
+
+      ${arrow('M560,170 H656')}
+      <text class="ov-yn" x="608" y="160">decisions</text>
+
+      ${arrow('M820,240 V370 H290 V324', 'ov-loop')}
+      <text class="ov-loopt" x="555" y="362">AI review</text>
     </svg></div>`;
 }
 
