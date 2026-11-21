@@ -6,3 +6,8 @@
 __pycache__/
 
 .DS_Store
+
+# engine/: rebuilt by prepare.py and the pipeline (docs/ and reference/ stay in git)
+engine/processed/tables/
+engine/processed/*.sqlite
+engine/outputs/
