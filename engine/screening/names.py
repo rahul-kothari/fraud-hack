@@ -112,7 +112,11 @@ class NameResult:
 def compare_parts(a: tuple[str, ...], b: tuple[str, ...]) -> NameResult:
     if not a or not b:
         return NameResult(False, 0, ())
-    cand = [(ua, ia, ub, ib) for ua, ia in _units(a) for ub, ib in _units(b) if part_match(ua, ub)]
+    # A part written together matches the same parts written apart on the OTHER side (Abdulsalam ~
+    # Abdul Salam). Joining on both sides is not allowed: it would let "garethwyn" match "garethwynn"
+    # although "wyn" and "wynn" (under 4 letters) do not match.
+    cand = [(ua, ia, ub, ib) for ua, ia in _units(a) for ub, ib in _units(b)
+            if not (len(ia) > 1 and len(ib) > 1) and part_match(ua, ub)]
     best: tuple[int, int, tuple] = (0, 0, ())  # (matches, covered-of-shorter, pairs)
     short_is_a = len(a) <= len(b)
 

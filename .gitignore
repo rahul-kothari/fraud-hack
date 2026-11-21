@@ -11,3 +11,4 @@ __pycache__/
 engine/processed/tables/
 engine/processed/*.sqlite
 engine/outputs/
+engine/review/second_opinion.json
