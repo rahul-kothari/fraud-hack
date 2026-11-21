@@ -631,7 +631,7 @@ function overviewPage(){
         <marker id="ov-arrow-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ov-tip-ai" d="M0,0 L10,5 L0,10 z"/></marker>
       </defs>
 
-      ${box(20, 'Policy Decision Tree')}
+      ${box(20, '🌳 Policy Decision Tree')}
       ${arrow('M190,129 L110,184')}${lbl(132, 150, 'yes')}
       ${arrow('M190,129 L265,184')}${lbl(246, 150, 'no')}
       ${arrow('M265,224 L210,264')}${lbl(225, 242, 'yes')}
@@ -642,17 +642,17 @@ function overviewPage(){
       ${node(205, 284, 120, 'SAME_ENTITY', 'ov-leaf ov-s')}
       ${node(312, 284, 84, 'REVIEW', 'ov-leaf ov-r')}
 
-      ${box(430, 'Evidence Weighting')}
+      ${box(430, '⚖️ Evidence Weighting')}
       <line class="ov-axis" x1="${AX}" y1="100" x2="${AX}" y2="250"/>
       ${bar(125, 'Name', 2.5)}
       ${bar(175, 'Birth date', 3.0)}
       ${bar(225, 'Country', -2.7)}
       <text class="ov-sub" x="600" y="295">chance it is the customer (%)</text>
 
-      ${box(840, 'AI review')}
-      ${point(125, 'reads each case and its evidence')}
-      ${point(175, 'flags edge cases')}
-      ${point(225, 'suggests rule changes')}
+      ${box(840, '🤖 AI review')}
+      ${point(125, 'Reads each case and its evidence')}
+      ${point(175, 'Flags edge cases')}
+      ${point(225, 'Suggests rule changes')}
 
       ${arrow('M360,170 H426')}
       ${arrow('M770,170 H836')}
