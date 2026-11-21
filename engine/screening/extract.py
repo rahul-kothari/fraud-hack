@@ -127,6 +127,7 @@ _AGE_PATTERNS = [
     r"[^\W\d_\)], (\d{1,3}),",
     r"\bwas (\d{1,3}) (?:when|at the time)\b", r"\bsubject was (\d{1,3})\b", r"\bat (?:age )?(\d{1,3}),",
     r"\bthen (\d{1,3}),", r"\breached (\d{1,3}) years of age\b", r"\bThe age of [^.]{1,60}? was (\d{1,3})\b",
+    r"\bwas (\d{1,3})\.(?=\s|$)",                     # "..., Tomasz Drozd was 27."
 ]
 _AGE_RX = [re.compile(p) for p in _AGE_PATTERNS]
 
@@ -141,11 +142,21 @@ def _ages(text: str) -> list[int]:
     return out
 
 
+_MONTH_WORD = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\b")
+_YEAR = re.compile(r"\b(1[89]\d\d|20\d\d)\b")
+
+
 def _age_at_date(text: str) -> tuple[int, PDate] | None:
     ages = _ages(text)
     dates = [p for p, _, _ in find_dates(text)]
     if len(ages) == 1 and len(set(dates)) == 1:
         return ages[0], dates[0]
+    if len(ages) == 1 and not dates:
+        # month and year split apart: "A 1996 media profile from October ..."
+        years, months = set(_YEAR.findall(text)), set(_MONTH_WORD.findall(text))
+        if len(years) == 1 and len(months) == 1:
+            from .dates import MONTHS
+            return ages[0], PDate(int(years.pop()), MONTHS[months.pop().lower()])
     return None
 
 
@@ -165,6 +176,7 @@ def first_paragraph(profile_notes: str | None) -> str:
 
 
 _BORN = re.compile(r"\bborn(?: on| in)? ", re.I)
+_DOB_FIELD = re.compile(r"\b(?:DOB|D\.O\.B\.?|Date of Birth)\s*:\s*(\d{1,2})/(\d{1,2})/(\d{4})\b")
 _SKIP_PARA = re.compile(r"^(Career|Political Party|Description|Sanctions ownership|Partido|Trayectoria)", re.I)
 
 
@@ -173,9 +185,21 @@ def profile_dob(hit: dict, grok: Grok | None) -> ProfileDob | None:
     if not para or _SKIP_PARA.match(para):
         return None
     if m := _BORN.search(para):
-        ds = find_dates(para[m.end():m.end() + 30])
+        after = para[m.end():m.end() + 30]
+        ds = find_dates(after)
         if ds:
             return ProfileDob(BirthSpec.exact(ds[0][0], "profile_notes", para), "regex", para)
+        if y := re.match(r"(1[89]\d\d|20\d\d)\b", after):             # "born in 1952."
+            return ProfileDob(BirthSpec.exact(PDate(int(y.group(1))), "profile_notes", para), "regex", para)
+    if m := _DOB_FIELD.search(para):
+        # a "DOB: ..." field in the first paragraph. Numeric dates are read only when unambiguous.
+        a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if a > 12 >= b:
+            return ProfileDob(BirthSpec.exact(PDate(y, b, a), "profile_notes", para), "regex", para)
+        if b > 12 >= a:
+            return ProfileDob(BirthSpec.exact(PDate(y, a, b), "profile_notes", para), "regex", para)
+        if a == b:
+            return ProfileDob(BirthSpec.exact(PDate(y, a, b), "profile_notes", para), "regex", para)
     if para.startswith(("According to", "On ")) and not _ages(para):
         return None  # a dated report or designation notice, no age in it
     if got := _age_at_date(para):

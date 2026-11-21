@@ -16,6 +16,7 @@ python -m venv ../.venv && ../.venv/Scripts/pip install -r requirements.txt   # 
 
 python prepare.py --xlsx "../Screening Dev Set - browse.xlsx"   # workbook -> processed/ (~20 s, once)
 python -m screening.pipeline --casebook ../visual/decisions.js # decide all 819 hits (~4 s)
+python -m screening.pipeline --csv outputs/decisions.csv       # same, plus a CSV in the practice labels' format
 python -m screening.evaluate -v                                # score against the 50 practice labels
 python -m screening.pipeline --alerts A-957E63                 # one alert, prints its trail
 python -m unittest discover tests                              # rules from the SOP's own examples
@@ -27,12 +28,13 @@ python -m unittest discover tests                              # rules from the 
 
 | | |
 |---|---|
-| Hits | 819: 455 DIFFERENT_ENTITY, 243 REVIEW, 121 SAME_ENTITY |
-| Alerts | 169 DIFFERENT_ENTITY (every hit cleared), 167 REVIEW, 104 SAME_ENTITY (at least one hit is the customer) |
+| Hits | 819: 465 DIFFERENT_ENTITY, 230 REVIEW, 124 SAME_ENTITY |
+| Alerts | 175 DIFFERENT_ENTITY (every hit cleared), 158 REVIEW, 107 SAME_ENTITY (at least one hit is the customer) |
 | Practice labels | decision 50/50, reason 50/50, customer 50/50, evidence precision 100% / recall 100% |
 | SAME_ENTITY predicted as DIFFERENT_ENTITY | 0 |
 
-Fifty labels is a small answer key, so expect some misses on the unseen set. REVIEW is the safe
+Fifty labels is a small answer key, so expect some misses on the unseen set. A manual review of all
+819 decisions is in [`review/`](review/README.md). REVIEW is the safe
 outcome: the engine only clears on a contradiction and only confirms on agreement.
 
 ## How it works

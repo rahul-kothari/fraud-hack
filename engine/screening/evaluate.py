@@ -67,6 +67,9 @@ def main() -> None:
     print(f"  customer record   {s['customer']}/{n}  ({s['customer'] / n:.0%})")
     print(f"  evidence          precision {s['evidence_precision']:.0%}, recall {s['evidence_recall']:.0%}")
     print(f"  WORST (SAME cleared as DIFFERENT): {len(s['worst'])} {s['worst']}")
+    same_reason = sum(preds[h]["reference_reason"] == labels[h]["reference_reason"] for h in s["per_hit"])
+    same_path = sum(preds[h]["path"] == labels[h]["path"] for h in s["per_hit"])
+    print(f"  wording           reference_reason identical {same_reason}/{n}, path identical {same_path}/{n}")
     confusion = Counter((labels[h]["decision"], preds[h]["decision"]) for h in s["per_hit"])
     print("\nconfusion (label -> predicted):")
     for (l, p), k in sorted(confusion.items()):
