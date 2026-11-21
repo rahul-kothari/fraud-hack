@@ -71,11 +71,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .ov-tip-ai{fill:var(--accent)}
 .ov-loopt{fill:var(--accent);font-family:var(--f-display);font-weight:600;font-size:16px;text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:8px}
 .ov-axis{stroke:var(--line);stroke-width:1.5}
-.ov-bl{fill:var(--fg);font-family:var(--f-body);font-size:14px}
+.ov-bl{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px}
 .ov-pos{fill:var(--bad)}
 .ov-neg{fill:var(--ok)}
 .ov-dot{fill:var(--accent)}
-.ov-pt{fill:var(--fg);font-family:var(--f-body);font-size:15px}
+.ov-pt{fill:var(--fg);font-family:var(--f-body);font-weight:600;font-size:16px}
 .app{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100vh - var(--nav-h))}
 .side{position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px));height:calc(100vh - var(--nav-h) - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--side);border-right:1px solid var(--line);min-width:0}
 .side-head{padding:20px 16px 12px;display:grid;gap:10px;border-bottom:1px solid var(--line)}
@@ -618,9 +618,9 @@ function overviewPage(){
     <text class="ov-title" x="${x + 24}" y="56">${title}</text>`;
   // evidence weighting: bars from an axis, 15px per unit of log-odds (weights from engine/screening/risk.py)
   const AX = 640, U = 15;
-  const bar = (y, label, w) => `<text class="ov-bl" x="452" y="${y + 5}">${label}</text>
-    <rect class="${w > 0 ? 'ov-pos' : 'ov-neg'}" x="${w > 0 ? AX : AX + w * U}" y="${y - 9}" width="${Math.abs(w) * U}" height="18" rx="3"/>`;
-  const point = (y, text) => `<circle class="ov-dot" cx="866" cy="${y - 5}" r="5"/><text class="ov-pt" x="882" y="${y}">${text}</text>`;
+  const bar = (y, label, w) => `<text class="ov-bl" x="456" y="${y + 6}">${label}</text>
+    <rect class="${w > 0 ? 'ov-pos' : 'ov-neg'}" x="${w > 0 ? AX : AX + w * U}" y="${y - 11}" width="${Math.abs(w) * U}" height="22" rx="4"/>`;
+  const point = (y, text) => `<circle class="ov-dot" cx="866" cy="${y - 6}" r="5"/><text class="ov-pt" x="882" y="${y}">${text}</text>`;
   return `<header class="ov-head">
       <h1>Assidous.AI</h1>
       <div class="ov-words"><span>Consistency</span><span>Explainability</span></div>
@@ -643,16 +643,16 @@ function overviewPage(){
       ${node(312, 284, 84, 'REVIEW', 'ov-leaf ov-r')}
 
       ${box(430, 'Evidence Weighting')}
-      <line class="ov-axis" x1="${AX}" y1="80" x2="${AX}" y2="200"/>
-      ${bar(100, 'Name', 2.5)}
-      ${bar(140, 'Birth date', 3.0)}
-      ${bar(180, 'Country', -0.8)}
-      <text class="ov-sub" x="600" y="290">chance it is the customer (%)</text>
+      <line class="ov-axis" x1="${AX}" y1="100" x2="${AX}" y2="250"/>
+      ${bar(125, 'Name', 2.5)}
+      ${bar(175, 'Birth date', 3.0)}
+      ${bar(225, 'Country', -0.8)}
+      <text class="ov-sub" x="600" y="295">chance it is the customer (%)</text>
 
       ${box(840, 'AI review')}
-      ${point(120, 'reads each case and its evidence')}
-      ${point(170, 'flags edge cases')}
-      ${point(220, 'suggests rule changes')}
+      ${point(125, 'reads each case and its evidence')}
+      ${point(175, 'flags edge cases')}
+      ${point(225, 'suggests rule changes')}
 
       ${arrow('M360,170 H426')}
       ${arrow('M770,170 H836')}
