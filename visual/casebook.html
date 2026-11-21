@@ -598,7 +598,7 @@ function overviewPage(){
   const box = (x, y, w, h, title, sub, cls = '') => `<rect class="ov-box ${cls}" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/>
     <text class="ov-t" x="${x + w / 2}" y="${y + (sub ? h / 2 - 4 : h / 2 + 6)}">${title}</text>${sub ? `<text class="ov-s" x="${x + w / 2}" y="${y + h / 2 + 18}">${sub}</text>` : ''}`;
   return `<header class="ov-head">
-      <h1>Is the customer the person on the watchlist?</h1>
+      <h1>Assidous.AI</h1>
       <div class="ov-words"><span>Consistency</span><span>Explainability</span></div>
     </header>
     <div class="ov-diagram"><svg viewBox="0 0 1000 300" role="img" aria-label="An alert's customer and watchlist hit are compared by the identity SOP, which gives a decision with its reason and evidence, alongside a fraud-risk score">
