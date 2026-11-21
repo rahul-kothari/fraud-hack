@@ -23,6 +23,8 @@
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
 h1,h2,h3,h4{font-family:var(--f-display);font-weight:600;text-wrap:balance;margin:0}
 h1{font-size:1.9rem;line-height:1.18}
+.caseid{font-family:var(--f-mono);font-size:.9rem;color:var(--muted);margin-top:-4px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 h2{font-size:1.25rem}
 h3{font-size:1.05rem}
 h4{font-size:.95rem;color:var(--muted)}
@@ -209,8 +211,7 @@ mark{background:var(--warn-soft);color:var(--fg);border-radius:3px;padding:0 2px
   <aside class="side" aria-label="Alerts">
     <div class="side-head">
       <div class="brand">Screening casebook</div>
-      <div id="meta" class="muted small">Track 1 dev set</div>
-      <label for="q" class="muted small">Find an alert</label>
+      <label for="q" class="sr-only">Find an alert</label>
       <input id="q" type="search" placeholder="Alert ID, customer or hit name" autocomplete="off">
     </div>
     <ol id="list" class="list"></ol>
@@ -546,6 +547,7 @@ function renderCase(){
   main.innerHTML = `<div class="case">
     <header class="ch">
       <h1>${esc(q)}</h1>
+      <div class="caseid">${esc(a.alert_id)}</div>
       ${flags.join('')}</header>
     ${hitTabs}${personTabs}
     <div class="duo">${custCard(c,p)}${hitCard(h)}</div>
@@ -594,7 +596,6 @@ document.addEventListener('toggle', e => { if (e.target.classList?.contains('man
 const d = window.CASEBOOK;   // set by data.js
 if (d) {
   S.data = d;
-  $('#meta').textContent = `Track 1 dev set · ${d.meta.alerts} alerts · ${d.meta.hits} hits · built ${d.meta.built}`;
   route();
 } else {
   $('#main').innerHTML = `<div class="case"><p class="flag bad">Could not load data.js. Run build_casebook.py, then open this page next to the data.js it writes.</p></div>`;
