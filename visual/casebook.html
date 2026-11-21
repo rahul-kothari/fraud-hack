@@ -121,20 +121,6 @@ tr.keep .c-ok,tr.pick .c-acc{background:var(--panel)}
 .mini{display:inline-block;font-family:var(--f-mono);font-size:.68rem;padding:0 6px;border-radius:4px;margin:1px 2px 1px 0;white-space:nowrap}
 .mini.ok{background:var(--ok-soft);color:var(--ok)}
 .mini.bad{background:var(--bad-soft);color:var(--bad)}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted);align-items:center}
-.hintnote{font-size:.82rem;color:var(--muted)}
-
-/* timeline */
-.tl{overflow-x:auto}
-.tl svg{display:block;min-width:560px;width:100%;height:auto}
-.tl .axis{stroke:var(--line);stroke-width:2}
-.tl .tick{stroke:var(--muted);stroke-width:1}
-.tl .lab{fill:var(--muted);font-family:var(--f-mono);font-size:12px}
-.tl .span{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
-.tl .span-lab{fill:var(--warn);font-family:var(--f-mono);font-size:12px}
-.tl .pt{fill:var(--accent)}
-.tl .pt-lab{fill:var(--accent);font-family:var(--f-mono);font-size:12px}
-.tl .guide{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3}
 
 /* answer key */
 section..key{border:1px dashed var(--warn);border-radius:10px;padding:14px 18px;display:grid;gap:10px}
@@ -237,12 +223,10 @@ const codes = xs => splitCodes(xs).map(esc).join(' · ');
 const showEng = () => !!ENG;    // predicted results always show when decisions.js is present
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CHIP = {'agrees':'c-ok','no conflict':'c-ok','contradicts':'c-bad','neither':'c-warn','too few parts':'c-warn','differs (name not verified)':'c-warn','no data':'c-off'};
-const STATE_HELP = {
-  'agrees':'agrees','no conflict':'nothing conflicts','contradicts':'contradicts','neither':'close, but does not agree',
-  'too few parts':'customer name has under two real parts','differs (name not verified)':'differs, but the name is not verified','no data':'nothing to compare'};
 
 const chip = (state, text) => `<span class="chip ${CHIP[state]||'c-off'}">${esc(text ?? state)}</span>`;
 const fd = d => { if(!d) return '—'; const [y,m,dd] = String(d).split('-'); return dd ? `${+dd} ${MON[m-1]} ${y}` : m ? `${MON[m-1]} ${y}` : y; };
+const fdl = t => String(t ?? '').replace(/\b\d{4}-\d{2}(-\d{2})?\b/g, fd);   // ISO dates inside a label, as 15 May 1988
 const plural = (n, w) => `${n} ${w}${n===1?'':'s'}`;
 const uniq = xs => [...new Set(xs.filter(Boolean))];
 const table = (head, rows, cls='') => `<div class="tw"><table class="${cls}"><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
@@ -294,11 +278,10 @@ function hitCard(h){
   const li = [
     r.position_or_allegation ? esc(r.position_or_allegation.slice(0,240)) : '',
     cs.length ? `Tied to ${esc(cs.join(', '))}` : 'No country in the profile',
-    h.dob_entries.length ? `Born ${esc(h.dob_entries.map(e=>e.label).join('; '))} <span class="muted small">(${esc(h.dob_source)})</span>` : 'No birth date in the profile or in qualifying search results',
+    h.dob_entries.length ? `Born ${esc(h.dob_entries.map(e=>fdl(e.label)).join('; '))} <span class="muted small">(${esc(h.dob_source)})</span>` : 'No birth date in the profile or in qualifying search results',
     [r.entity_type, r.gender].filter(Boolean).join(', '),
     h.deceased ? `Died ${esc(fd(h.deceased))}` : (r.life_status ? esc(r.life_status) : ''),
     h.names.length>1 ? `Also known as ${esc(h.names.slice(1,4).join('; '))}${h.names.length>4?` and ${h.names.length-4} more`:''}` : '',
-    `Match score ${esc(r.match_score)}`,
   ].filter(Boolean);
   return `<div class="person hit"><span class="role">Watchlist entry · the hit</span>
     <span class="who">${esc(r.name)}</span>
@@ -315,10 +298,11 @@ function candRows(c, cands, chosenIds){
   return cands.map(x => { const r = c.records[x.rid]||{}; const pick = chosenIds.has(x.rid);
     return `<tr class="${pick?'pick':(x.fits?'keep':'drop')}"><td class="mono">${esc(x.rid)}</td><td>${esc(r.full_name)}${r.preferred_name?` <span class="muted">(${esc(r.preferred_name)})</span>`:''}</td><td>${esc(r.dob)}</td><td>${esc(uniq([r.nationality,r.residence_country]).join(' / '))}</td><td>${esc(r.city)}</td><td>${checkMinis(x.checks)}</td></tr>`;}).join('');
 }
-/* The link chain: alert ──login x──▶ ACC-… ──▶ CUS-… (one line per account) */
+/* The link chain: Login: x ──▶ ACC-… ──▶ CUS-… (one line per account) */
 const LINK_WORD = {account_ref:'account', login_handle:'login', email:'email'};
 function chainLines(l){
-  const arrow = l.kind==='account_ref' ? 'Account Num: ' : `alert ──${LINK_WORD[l.kind]} ${l.value}──▶ `;
+  // start from what the alert carries, end with the customer IDs
+  const arrow = {account_ref: 'Account Num: ', login_handle: `Login: ${l.value} ──▶ `, email: `Email: ${l.value} ──▶ `}[l.kind];
   if (l.kind==='email') return [arrow + (l.path.length ? l.path.map(x=>x.customer).join(' + ') : 'no customer found')];
   if (!l.path.length) return [arrow + (l.kind==='account_ref' ? `${l.value} ──▶ no customer found` : 'no account found')];
   const by = {};
@@ -348,7 +332,7 @@ function stepFind(c){
     // one line per search step, with the screened value it tests
     const step = {'name agrees': `named ${a.customer_name}`, 'same type': a.entity_type==='Company' ? 'companies' : 'individuals',
                   'date of birth fits': `born ${a.dob}`, 'country fits': `tied to ${a.country}`, 'city fits': `in ${a.city}`};
-    const chain = ['alert ──no account, login or email──▶ name search', ...res.funnel.map(f => `  ──▶ ${f.n} ${step[f.label] || f.label}`)].join('\n');
+    const chain = ['No account, login or email ──▶ name search', ...res.funnel.map(f => `  ──▶ ${f.n} ${step[f.label] || f.label}`)].join('\n');
     lead = `<p>${esc(screened)} It carries no account, login or email. So the rules say: search every customer by name, then keep the records that fit. The table shows the records with the name, best fit first.</p><pre class="chain">${esc(chain)}</pre>`;
   }
   return `<li class="step"><h3>Account Details of the alert</h3>${lead}${table(head, [candRows(c, base, chosen) + moreRow])}</li>`;
@@ -396,7 +380,7 @@ function stepHit(h){
   const r = h.row;
   const yes = b => b ? '<span class="mini ok">✓</span>' : '<span class="mini bad">✗</span>';
   const parts = [];
-  // one table of facts: what the hit says, and where each fact comes from
+  // one table of facts the hit gives; a birth date names its source, since the SOP ranks them
   const quote = t => `<span class="small muted">“${esc(t)}”</span>`;
   const dobSrc = {
     'dobs field': () => '<span class="mono">dobs</span> field',
@@ -404,17 +388,17 @@ function stepHit(h){
     'search results': () => `search result ${esc(uniq(h.dob_entries.map(e => e.src)).join(', '))}`,
   };
   // only facts the hit gives
-  const facts = h.dob_entries.length ? [[r.entity_type==='Company' ? 'Founded' : 'Born', esc(h.dob_entries.map(e => e.label).join('; ')), h.dob_source ? dobSrc[h.dob_source]() : '']] : [];
+  const facts = h.dob_entries.length ? [[r.entity_type==='Company' ? 'Founded' : 'Born', esc(h.dob_entries.map(e => fdl(e.label)).join('; ')) + (h.dob_source ? ` <span class="small muted">(${dobSrc[h.dob_source]()})</span>` : '')]] : [];
   const byCountry = {};
   for (const x of h.countries) (byCountry[x.c] ||= []).push(x.src);
-  for (const [cn, srcs] of Object.entries(byCountry)) facts.push(['Country', esc(cn), esc(uniq(srcs).join(', '))]);
-  if (h.earliest) facts.push(['Earliest dated report', esc(fd(h.earliest.date)), quote(h.earliest.line)]);
-  if (h.deceased) facts.push(['Died', esc(fd(h.deceased)), 'profile']);
-  if (facts.length) parts.push(table(['Fact', 'What the hit says', 'Where it comes from'], [facts.map(([f, v, src]) => `<tr><td>${f}</td><td>${v}</td><td>${src}</td></tr>`).join('')]));
+  for (const cn of Object.keys(byCountry)) facts.push(['Country', esc(cn)]);
+  if (h.earliest) facts.push(['Earliest dated report', `${esc(fd(h.earliest.date))} ${quote(h.earliest.line)}`]);
+  if (h.deceased) facts.push(['Died', esc(fd(h.deceased))]);
+  if (facts.length) parts.push(table(['Fact', 'What the hit says'], [facts.map(([f, v]) => `<tr><td>${f}</td><td>${v}</td></tr>`).join('')]));
   // search
   if (h.search.length) {
     const rows = h.search.map(s => `<tr class="${s.about_hit?'keep':'drop'}"><td class="mono">${esc(s.result_id)}${cited(h,s.result_id)}</td><td>${esc(s.snippet)}</td><td>${yes(s.phrase_ok)}</td><td>${s.countries.length?esc(s.countries.join(', ')):'—'} ${yes(s.country_ok.length)}</td><td>${s.years?`${s.age} in ${s.year} → ${s.years[0]}/${s.years[1]}`:'—'}</td><td>${s.about_hit?chip('agrees','about the hit'):chip('no data','namesake')}</td></tr>`);
-    parts.push(`<div class="sub"><h4>Web search results for “${esc(h.query)}”</h4>${table(['Result','Snippet','Listing type','Country','Age → born','Hint'], rows)}</div>`);
+    parts.push(`<div class="sub"><h4>Web search results for “${esc(h.query)}”</h4>${table(['Result','Snippet',`Says “${h.phrase}”?`,'Country','Age → born','Hint'], rows)}</div>`);
   } else {
     parts.push(`<div class="sub"><h4>Web search results</h4><p class="small muted">None filed under “${esc(h.query)}”.</p></div>`);
   }
@@ -422,32 +406,13 @@ function stepHit(h){
 }
 
 /* ---------------- step 5: compare ---------------- */
-function timeline(custDob, entries, isCo){
-  const c = custDob ? custDob.split('-').map(Number) : null;
-  const es = entries.slice(0,5).map(e => ({lo:Math.min(...e.years), hi:Math.max(...e.years), label:e.label}));
-  if (!c || !es.length) return '';
-  const cyf = c[0] + (c[1]?(c[1]-1)/12:0) + (c[2]?(c[2]-1)/365:0);
-  let lo = Math.min(c[0], ...es.map(e=>e.lo)) - 2, hi = Math.max(c[0], ...es.map(e=>e.hi)) + 3;
-  const span = hi-lo, step = span<=10?1:span<=20?2:span<=50?5:span<=100?10:20;
-  lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step;
-  const W=900, L=50, R=870, x = y => L + (y-lo)/(hi-lo)*(R-L);
-  const rowsY = es.map((_,i)=>70+i*30), axisY = 70 + es.length*30 + 6, H = axisY + 40;
-  let ticks = ''; for (let y=lo; y<=hi; y+=step) ticks += `<line class="tick" x1="${x(y)}" y1="${axisY-6}" x2="${x(y)}" y2="${axisY+6}"/><text class="lab" x="${x(y)}" y="${axisY+24}" text-anchor="middle">${y}</text>`;
-  const spans = es.map((e,i)=>{ const x1=x(e.lo), x2=Math.max(x(e.hi+1), x1+6); const lab = `hit: ${e.label}`; const anchorEnd = x2 > W-200;
-    return `<rect class="span" x="${x1}" y="${rowsY[i]-11}" width="${x2-x1}" height="22" rx="3"/><text class="span-lab" x="${anchorEnd?x1-8:x2+8}" y="${rowsY[i]+4}" text-anchor="${anchorEnd?'end':'start'}">${esc(lab)}</text>`;}).join('');
-  const cx = x(cyf), anchor = cx > W-260 ? 'end' : 'start';
-  return `<div class="tl"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Customer ${isCo?'founded':'born'} ${esc(custDob)} against the hit's dates ${esc(es.map(e=>e.label).join(', '))}">
-    <line class="guide" x1="${cx}" y1="34" x2="${cx}" y2="${axisY}"/>${spans}
-    <line class="axis" x1="${L}" y1="${axisY}" x2="${R}" y2="${axisY}"/>${ticks}
-    <circle class="pt" cx="${cx}" cy="${axisY}" r="7"/><text class="pt-lab" x="${anchor==='end'?cx-10:cx+10}" y="30" text-anchor="${anchor}">customer: ${esc(fd(custDob))}</text></svg></div>`;
-}
 function stepCompare(c, p, h, cmp){
   const isCo = (p?.type || c.alert.entity_type)==='Company';
   const nm = cmp.name.match;
   const pairs = nm && nm.pairs.length ? nm.pairs.map(([x,y,how])=>`${esc(x)} ↔ ${esc(y)} <span class="muted">(${esc(how)})</span>`).join('; ') : 'no parts match';
   const nameCust = nm ? `${esc(nm.a)} <span class="muted small">(${cmp.name.verified?'verified':'not verified'})</span>` : '—';
   const nameHit = nm ? esc(nm.b) : esc(h.row.name);
-  const dobPer = cmp.dob.per.map(x=>`${esc(x.label)} ${chip(x.state)}`).join(' ');
+  const dobPer = cmp.dob.per.map(x=>`${esc(fdl(x.label))} ${chip(x.state)}`).join(' ');
   const timeTxt = cmp.time.reasons.length ? esc(cmp.time.reasons.join('; ')) : (h.earliest ? `earliest dated report ${esc(fd(h.earliest.date))}` : '') + (h.deceased ? `${h.earliest?'; ':''}died ${esc(fd(h.deceased))}` : '');
   const rows = [
     `<tr><td>Person or company</td><td>${esc(cmp.type.cust)}</td><td>${esc(cmp.type.hit)}</td><td>${chip(cmp.type.state)}</td></tr>`,
@@ -456,11 +421,7 @@ function stepCompare(c, p, h, cmp){
     `<tr><td>Country</td><td>${esc(cmp.country.cust.join(', ')||'—')}</td><td>${esc(cmp.country.hit.join(', ')||'—')}</td><td>${chip(cmp.country.state)}${cmp.country.shared.length?`<div class="small muted">shared: ${esc(cmp.country.shared.join(', '))}</div>`:''}</td></tr>`,
     `<tr><td>Time</td><td>${isCo?'incorporation':'age at reports'}</td><td>${timeTxt||'—'}</td><td>${chip(cmp.time.state)}</td></tr>`,
   ];
-  const legend = Object.entries(STATE_HELP).filter(([k])=>['agrees','contradicts','neither','no data'].includes(k)).map(([k,v])=>`${chip(k)} ${esc(v)}`).join(' ');
-  return `<li class="step"><h3>Compare the facts</h3>${table(['Fact','Our customer','The hit','Hint'], rows)}
-    ${timeline(cmp.dob.cust, h.dob_entries, isCo)}
-    <div class="legend">${legend}</div>
-    <p class="hintnote">Hints are mechanical checks of single rules. They are not a decision. The rules: clear a hit only on a contradiction; confirm a person only when name and birth date agree and nothing contradicts; otherwise REVIEW.</p></li>`;
+  return `<li class="step"><h3>Compare the facts</h3>${table(['Fact','Our customer','The hit','Hint'], rows)}</li>`;
 }
 
 /* ---------------- the engine's decision ---------------- */
@@ -542,7 +503,7 @@ function renderCase(){
   const flags = [];
   if (people.length>1) flags.push(`<p class="flag warn">${people.length} people fit this alert. The rules say: decide the hit for each person. If they lead to different decisions, the answer is REVIEW with AMBIGUOUS_CUSTOMER_RECORD.</p>`);
   if (!people.length) flags.push(`<p class="flag bad">No customer record fits this alert. The comparison below uses the screened details only.</p>`);
-  const hitTabs = hits.length>1 ? `<div class="tabrow"><span class="eyebrow">Hits on this alert</span><div class="tabs">${hits.map((x,i)=>`<button type="button" data-hit="${i}" aria-pressed="${x===h}"><span class="t1">${esc(x.row.name)}</span><span class="t2">${showEng() && engHit(x.id) ? dchip(engHit(x.id).decision) + ' ' + esc(engHit(x.id).reason_codes[0]) + ' · ' : ''}${esc(x.id)} · ${esc(x.category||'')} · score ${esc(x.row.match_score)}${x.label?' · key':''}</span></button>`).join('')}</div></div>` : '';
+  const hitTabs = hits.length>1 ? `<div class="tabrow"><span class="eyebrow">Hits on this alert</span><div class="tabs">${hits.map((x,i)=>`<button type="button" data-hit="${i}" aria-pressed="${x===h}"><span class="t1">${esc(x.row.name)}</span><span class="t2">${showEng() && engHit(x.id) ? dchip(engHit(x.id).decision) + ' ' + esc(engHit(x.id).reason_codes[0]) + ' · ' : ''}${esc(x.id)} · ${esc(x.category||'')}${x.label?' · key':''}</span></button>`).join('')}</div></div>` : '';
   const personTabs = people.length>1 ? `<div class="tabrow"><span class="eyebrow">People who fit</span><div class="tabs">${people.map((x,i)=>`<button type="button" data-person="${i}" aria-pressed="${i===pi}"><span class="t1">${esc(x.name)}</span><span class="t2">${esc(x.records.join(', '))}</span></button>`).join('')}</div></div>` : '';
   main.innerHTML = `<div class="case">
     <header class="ch">
