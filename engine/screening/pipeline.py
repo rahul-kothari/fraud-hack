@@ -14,6 +14,7 @@ import time
 from .config import OUTPUTS
 from .dates import PDate
 from .decide import combine, decide_one, hit_facts
+from .evidence import describe
 from .grok import Grok
 from .resolve import Resolver
 from .store import Store
@@ -35,16 +36,24 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
             path.append(f"hit date of birth from {hf.dob_source_note}: "
                         f"{'; '.join(d.describe() for d in hf.dobs)}")
         path.append(f"{v.decision} [{v.reason}]: {v.explanation}")
+        evidence = list(dict.fromkeys(v.evidence))
+        label = store.labels.get(hit_id)
+        people = [] if res.people[0].from_alert_only else res.people
+        # describe our evidence, and the label's too, so the page can explain both side by side
+        # with several people, each may rest on a different reason: judge relevance by all of them
+        all_codes = list(dict.fromkeys([v.reason] + v.also + [c for _, pv in verdicts for c in [pv.reason] + pv.also]))
+        detail = describe(store, evidence + (label["evidence"] if label else []), people, hf, all_codes)
         out.append({
             "hit_id": hit_id,
             "alert_id": alert["alert_id"],
             "decision": v.decision,
             "reason_codes": [v.reason] + v.also,
             "customer_record_ids": cust_ids,
-            "evidence": list(dict.fromkeys(v.evidence)),
+            "evidence": evidence,
             "reference_reason": v.explanation,
             "path": " → ".join(path),
             "extraction_methods": hf.methods,
+            "evidence_detail": detail,
         })
     return out
 
@@ -73,7 +82,7 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
             "decision": r["decision"], "reason_codes": r["reason_codes"],
             "customer_record_ids": r["customer_record_ids"], "evidence": r["evidence"],
             "reason": r["reference_reason"], "path": r["path"].split(" → "),
-            "methods": r["extraction_methods"],
+            "methods": r["extraction_methods"], "evidence_detail": r["evidence_detail"],
             **({"vs_label": per[r["hit_id"]]} if r["hit_id"] in per else {}),
         }
     outcomes = {a["alert_id"]: alert_outcome([by_hit[h]["decision"] for h in a["hit_ids"] if h in by_hit])

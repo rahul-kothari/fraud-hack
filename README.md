@@ -16,7 +16,9 @@ python -m screening.pipeline --casebook ../visual/decisions.js
 
 The second command writes `visual/decisions.js`, which the casebook shows as a separate layer. Every
 case opens with a table of each hit's predicted result (decision and reason code) beside its true
-result from the practice labels. There is also a full panel per hit and filters by predicted result.
+result from the practice labels. Below it, the selected hit's predicted and true results sit side by
+side, and each piece of evidence is described: what the record says and what it was used for.
+The sidebar filters by predicted result.
 Untick "Show predicted results" in the sidebar to work a case blind.
 
 ## visual/

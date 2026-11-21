@@ -61,6 +61,11 @@ class Store:
         for s in search:
             self.search_by_query[s["query"]].append(s)
 
+        # by ID, for describing evidence
+        self.kyc_by_id = {k["check_id"]: k for k in kyc}
+        self.notes_by_id = {n["note_id"]: n for n in notes}
+        self.search_by_id = {s["result_id"]: s for s in search}
+
     # ---------------------------------------------------------------- helpers
 
     def kyc_checks_for(self, record_id: str) -> list[dict]:

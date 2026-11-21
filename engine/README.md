@@ -59,6 +59,11 @@ into a fixed JSON schema. Grok never makes the decision. Set `XAI_API_KEY` to en
 `GROK_MODEL` to pick the model). Answers are cached in `.cache/grok/`. `--grok off` forces regex only.
 On the dev set, regex alone reads all 22,575 KYC notes, and only about a dozen texts would go to Grok.
 
+Each decision also carries `evidence_detail`. For every evidence ID, and for the practice label's
+evidence too, it gives what the record is, a summary of what it says, and what the decision used it
+for (e.g. "customer's date of birth: 1985-09-12", "ties the customer to Brazil"). This is built in
+`evidence.py`, and the casebook shows it.
+
 ## Files
 
 - `prepare.py` writes `processed/`. Generated, but `docs/` and `reference/` are kept in git:
