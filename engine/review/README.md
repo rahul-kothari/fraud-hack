@@ -41,12 +41,16 @@ python engine/review/scan.py SAME_ENTITY       # one line per hit with that deci
 | "DOB: 6/20/1955" field not read | 1 | SAME_ENTITY → DIFFERENT_ENTITY (H-2C6B2E) |
 | Name matcher joined parts on both sides | 1 | REVIEW → DIFFERENT_ENTITY (H-B47A06) |
 | "X was 27." / "A 1996 profile from October" not read | 2 | REVIEW → DIFFERENT_ENTITY, REVIEW → SAME_ENTITY |
-| Territory city vs country (policy reading) | 1 | DIFFERENT_ENTITY; REVIEW is arguably safer (H-BC0D0C) |
+| Territory city vs country (policy reading) | 1 | **Decided: stays DIFFERENT_ENTITY / LOCATION_MISMATCH** (H-BC0D0C) |
 
-The engine fixes in this branch resolve the 14 high-confidence flags. H-BC0D0C still follows the
-letter of the SOP: the customer's countries (United States, Brazil) differ from the hit's (Northern
-Mariana Islands, a territory). But one of the customer's records has the city "Saipan, Northern Mariana
-Islands", and no DOB exists on either side. This is left for a human decision.
+The engine fixes in this branch resolve the 14 high-confidence flags.
+
+**H-BC0D0C: decided to follow the SOP to the letter.** The customer's countries (United States,
+Brazil) differ from the hit's (Northern Mariana Islands, a territory), and the SOP's list of customer
+countries (residence, nationality, approved document, places the notes say they lived) does not
+include a record's city. One of the customer's records has the city "Saipan, Northern Mariana
+Islands", which argued for REVIEW. The team chose the letter of the SOP, so the engine keeps
+DIFFERENT_ENTITY / LOCATION_MISMATCH and does not read cities as countries.
 
 None of the flagged hits was a customer wrongly cleared. H-2C6B2E was a false escalation: the hit's
 own profile gives a DOB that contradicts the customer's.
