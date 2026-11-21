@@ -152,41 +152,60 @@ class Resolver:
 
     def resolve(self, alert: dict) -> Resolution:
         s, path = self.store, []
+        # Path steps use the practice labels' wording.
         linked: list[str] = []
+        step = ""
+        accounts = []
         if alert["account_ref"]:
-            linked = [a["customer_id"] for a in s.accounts_by_id.get(alert["account_ref"], [])]
-            path.append(f"account_ref {alert['account_ref']} -> accounts: {', '.join(linked) or 'none'}")
+            accounts = s.accounts_by_id.get(alert["account_ref"], [])
+            linked = [a["customer_id"] for a in accounts]
+            step = f"account_ref {alert['account_ref']} -> accounts"
         elif alert["login_handle"]:
-            linked = [a["customer_id"] for a in s.accounts_by_login.get(alert["login_handle"].lower(), [])]
-            path.append(f"login_handle {alert['login_handle']} -> accounts: {', '.join(linked) or 'none'}")
+            accounts = s.accounts_by_login.get(alert["login_handle"].lower(), [])
+            linked = [a["customer_id"] for a in accounts]
+            step = f"login_handle {alert['login_handle']} -> accounts {', '.join(dict.fromkeys(a['account_id'] for a in accounts)) or 'none'}"
         elif alert["email"]:
             linked = s.customers_by_email.get(alert["email"].lower(), [])
-            path.append(f"email {alert['email']} -> customers: {', '.join(linked) or 'none'}")
+            step = f"email {alert['email']} -> customers"
         linked = [r for r in dict.fromkeys(linked) if r in s.customers]
 
         if linked:
+            fits = [r for r in linked if _fits(s.customers[r], alert)]
+            if len(linked) > 1 and alert["account_ref"]:
+                holders = fits + [r for r in linked if r not in fits]     # the one who fits first
+                step += f": joint holders {' and '.join(holders)}"
+            else:
+                step += f" -> {'customer ' if not alert['email'] else ''}{', '.join(linked)}"
             groups = {self.people.find(r) for r in linked}
             if len(groups) > 1:
                 fitting = [r for r in linked if _fits(s.customers[r], alert)]
                 if fitting:
-                    path.append(f"the screened details fit {', '.join(fitting)}")
+                    step += f" -> the screened name and date of birth fit {', '.join(fitting)}"
                     linked = fitting
                 else:
-                    path.append("the screened details fit none of the linked records; keeping all")
+                    step += " -> the screened details fit none of them; all are kept"
+            path.append(step)
             records = linked
         else:
+            if step:
+                path.append(step + " -> no customer")
             company = alert["entity_type"] == "Company"
             cands = self.name_index.candidates(alert["customer_name"], company)
             records = sorted(r for r in cands if _fits(s.customers[r], alert))
-            path.append(f"no link: name, DOB, country and city -> customers: {', '.join(records) or 'none'}")
+            path.append("name, date of birth, country and city -> customers")
 
         roots = list(dict.fromkeys(self.people.find(r) for r in records))
         people = [self.build_person(self.people.records_of(root)) for root in roots]
         if len(people) > 1:
-            path.append(f"{len(people)} different people fit; each is decided separately")
-        for p in people:
+            all_recs = sorted({r for p in people for r in p.record_ids})
+            path.append(f"{len(people)} different people fit (records {', '.join(all_recs)}); "
+                        f"each is decided separately")
+        for p in people if len(people) == 1 else []:   # the labels skip this step when several people fit
             if len(p.record_ids) > 1:
-                path.append(f"one person: {', '.join(p.record_ids)}")
+                first = [r for r in records if r in p.record_ids]
+                order = first + [r for r in p.record_ids if r not in first]
+                path.append("same phone and date of birth, or same document number on approved checks "
+                            f"-> one person: {', '.join(order)}")
         if not people:
             people = [self.person_from_alert(alert)]
         return Resolution(people, records, path)

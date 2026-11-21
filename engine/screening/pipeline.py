@@ -20,6 +20,24 @@ from .resolve import Resolver
 from .store import Store
 
 
+def evidence_steps(evidence: list[str], store: Store, several: bool) -> list[str]:
+    """One path step per cited check, note and search result, worded and ordered as the labels do."""
+    steps = []
+    for kid in (e for e in evidence if e.startswith("KYC-")):
+        k = store.kyc_by_id.get(kid)
+        rows = store.onboarding_by_applicant.get(k["applicant_id"], []) if k else []
+        if several or not rows:
+            steps.append(f"customer -> accounts  -> onboarding  -> latest approved check {kid}")
+        else:
+            o = rows[0]
+            steps.append(f"{o['customer_id']} -> accounts {o['account_id']} -> onboarding {o['kyc_applicant_id']} "
+                         f"-> latest approved check {kid}")
+    steps += [f"customer email -> notes -> {n}" for n in evidence if n.startswith("NOTE-")]
+    steps += [f"search results for the hit's name -> {r} (same role and country as the hit)"
+              for r in evidence if r.startswith("SR-")]
+    return steps
+
+
 def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) -> list[dict]:
     res = resolver.resolve(alert)
     screened_at = PDate.from_iso(alert["screened_at"])
@@ -31,12 +49,9 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
         v, cust_ids = combine(verdicts)
         if res.people[0].from_alert_only:
             cust_ids = []
-        path = list(res.path)
-        if hf.dobs:
-            path.append(f"hit date of birth from {hf.dob_source_note}: "
-                        f"{'; '.join(d.describe() for d in hf.dobs)}")
-        path.append(f"{v.decision} [{v.reason}]: {v.explanation}")
         evidence = list(dict.fromkeys(v.evidence))
+        path = list(res.path) + evidence_steps(evidence, store, several=len(res.people) > 1)
+        path.append(f"{v.decision} {[v.reason] + v.also}: {v.explanation}")
         label = store.labels.get(hit_id)
         people = [] if res.people[0].from_alert_only else res.people
         # describe our evidence, and the label's too, so the page can explain both side by side
@@ -56,6 +71,21 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
             "evidence_detail": detail,
         })
     return out
+
+
+LABEL_COLUMNS = ["hit_id", "alert_id", "decision", "reason_codes", "customer_record_ids", "evidence",
+                 "reference_reason", "path"]
+
+
+def write_csv(rows: list[dict], path: str) -> None:
+    """The practice labels' table format: same columns, lists joined with '; '."""
+    import csv
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(LABEL_COLUMNS)
+        for r in rows:
+            w.writerow(["; ".join(r[c]) if isinstance(r[c], list) else r[c] for c in LABEL_COLUMNS])
+    print(f"csv -> {path}")
 
 
 def alert_outcome(decisions: list[str]) -> str:
@@ -112,6 +142,7 @@ def main() -> None:
     ap.add_argument("--alerts", nargs="*", help="only these alert IDs")
     ap.add_argument("--labelled", action="store_true", help="only alerts with practice labels")
     ap.add_argument("--out", default=str(OUTPUTS / "decisions.jsonl"))
+    ap.add_argument("--csv", help="also write the decisions as a CSV in the practice labels' columns and format")
     ap.add_argument("--casebook", help="also write the decisions for visual/casebook.html (e.g. ../visual/decisions.js)")
     args = ap.parse_args()
 
@@ -144,6 +175,8 @@ def main() -> None:
     print(f"{len(rows)} hits from {len(alerts)} alerts -> {args.out}  {counts}")
     if grok:
         print(grok.stats())
+    if args.csv:
+        write_csv(rows, args.csv)
     if args.casebook:
         engine = "regex only" if grok is None else ("regex + Grok cache" if grok.offline else f"regex + Grok ({grok.model})")
         write_casebook(rows, alerts, store, args.casebook, engine)

@@ -16,6 +16,7 @@ python -m venv ../.venv && ../.venv/Scripts/pip install -r requirements.txt   # 
 
 python prepare.py --xlsx "../Screening Dev Set - browse.xlsx"   # workbook -> processed/ (~20 s, once)
 python -m screening.pipeline --casebook ../visual/decisions.js # decide all 819 hits (~4 s)
+python -m screening.pipeline --csv outputs/decisions.csv       # same, plus a CSV in the practice labels' format
 python -m screening.evaluate -v                                # score against the 50 practice labels
 python -m screening.pipeline --alerts A-957E63                 # one alert, prints its trail
 python -m unittest discover tests                              # rules from the SOP's own examples
