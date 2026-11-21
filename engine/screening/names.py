@@ -15,6 +15,8 @@ import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
 
+from pathlib import Path
+
 from .config import REFERENCE
 
 PLACEHOLDERS = {"na", "test", "unknown", "xxx", "none", "null", "nil", "tbd", "tba", "unk", "noname",
@@ -23,11 +25,36 @@ _TRANSLIT = str.maketrans({"ß": "ss", "ø": "o", "Ø": "o", "æ": "ae", "Æ": "
                            "ł": "l", "Ł": "l", "đ": "d", "Đ": "d", "ı": "i", "þ": "th", "ð": "d"})
 
 
+_VARIANTS_PATH = REFERENCE / "name_variants.json"
+
+
+def use_variants(path) -> None:
+    """Read name variants from this file (a data folder's name_variants.json) from now on.
+    None keeps the current file. Also points the translit package at it."""
+    global _VARIANTS_PATH
+    if path is None:
+        return
+    import os
+    _VARIANTS_PATH = path
+    os.environ["NAME_VARIANTS_PATH"] = str(path)
+    _reference.cache_clear()
+    parts.cache_clear()
+    part_match.cache_clear()
+    try:
+        from .translit import variants as _tv
+        _tv._DEFAULT = None
+    except ImportError:
+        pass
+    from . import decide
+    decide._TRANSLIT = None
+
+
 @lru_cache(maxsize=1)
 def _reference() -> tuple[dict[str, frozenset[int]], frozenset[str]]:
-    data = json.loads((REFERENCE / "name_variants.json").read_text(encoding="utf-8"))
+    data = json.loads(Path(_VARIANTS_PATH).read_text(encoding="utf-8"))
     groups: dict[str, set[int]] = {}
-    for gi, g in enumerate(data["name_variant_groups"]):
+    # official file: "groups"; our processed copy: "name_variant_groups"
+    for gi, g in enumerate(data.get("groups") or data.get("name_variant_groups") or []):
         for w in g:
             groups.setdefault(w, set()).add(gi)
     return {k: frozenset(v) for k, v in groups.items()}, frozenset(data["company_legal_forms"])
@@ -115,15 +142,29 @@ def compare_parts(a: tuple[str, ...], b: tuple[str, ...]) -> NameResult:
     # A part written together matches the same parts written apart on the OTHER side (Abdulsalam ~
     # Abdul Salam). Joining on both sides is not allowed: it would let "garethwyn" match "garethwynn"
     # although "wyn" and "wynn" (under 4 letters) do not match.
+    # Parts under 4 letters must be identical, also inside a joined pair: "st"+"logistics" written
+    # together is 2 edits from "logistics", but that would swallow "st", so a joined pair that
+    # contains a short part must match exactly.
+    def joined_ok(ua: str, ia: frozenset, side: tuple, ub: str) -> bool:
+        return len(ia) == 1 or all(len(side[i]) >= 4 for i in ia) or ua == ub
+
     cand = [(ua, ia, ub, ib) for ua, ia in _units(a) for ub, ib in _units(b)
-            if not (len(ia) > 1 and len(ib) > 1) and part_match(ua, ub)]
-    best: tuple[int, int, tuple] = (0, 0, ())  # (matches, covered-of-shorter, pairs)
-    short_is_a = len(a) <= len(b)
+            if not (len(ia) > 1 and len(ib) > 1) and part_match(ua, ub)
+            and joined_ok(ua, ia, a, ub) and joined_ok(ub, ib, b, ua)]
+    def covers_shorter(used_a: frozenset, used_b: frozenset) -> bool:
+        # "Every part of the shorter name matches". With equal lengths neither name is shorter, so
+        # either side being fully covered counts ("Mun Chen" is all covered by "Munchen").
+        if len(a) < len(b):
+            return len(used_a) == len(a)
+        if len(b) < len(a):
+            return len(used_b) == len(b)
+        return len(used_a) == len(a) or len(used_b) == len(b)
+
+    best: tuple[bool, int, tuple] = (False, 0, ())  # (agrees, matches, pairs)
 
     def search(k: int, used_a: frozenset, used_b: frozenset, chosen: tuple) -> None:
         nonlocal best
-        cover = len(used_a) if short_is_a else len(used_b)
-        score = (len(chosen), cover, chosen)
+        score = (len(chosen) >= 2 or (bool(chosen) and covers_shorter(used_a, used_b)), len(chosen), chosen)
         if score[:2] > best[:2]:
             best = score
         for n in range(k, len(cand)):
@@ -133,9 +174,7 @@ def compare_parts(a: tuple[str, ...], b: tuple[str, ...]) -> NameResult:
             search(n + 1, used_a | ia, used_b | ib, chosen + ((ua, ub),))
 
     search(0, frozenset(), frozenset(), ())
-    matched, covered, pairs = best
-    shorter = len(a) if short_is_a else len(b)
-    agrees = matched >= 2 or covered == shorter
+    agrees, matched, pairs = best
     return NameResult(agrees, matched, pairs)
 
 

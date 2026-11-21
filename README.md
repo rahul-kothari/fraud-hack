@@ -17,14 +17,15 @@ python -m screening.pipeline --casebook ../visual/decisions.js
 The second command writes `visual/decisions.js`, which the casebook shows as a separate layer. Each
 case opens with the selected hit's predicted result beside its true result from the practice labels,
 and each piece of evidence is described: what the record says and what it was used for. The alert
-list and the hit tabs show each predicted decision.
+list and the hit tabs show each predicted decision. Each prediction also carries a fraud-risk score: the modelled chance (%) that the hit is the
+customer, with its drivers folded below. It sits beside the SOP decision and never changes it.
 
 ## visual/
 
 A casebook of every screening alert in the dev set. Each alert is laid out as a story: the customer and the watchlist hit side by side, the SOP's steps to an answer, a hint for each rule, and the raw rows. The hints are mechanical checks of single rules. The casebook itself makes no decisions. The engine's decisions are a separate, optional layer.
 
 - `build_casebook.py` reads the dev-set workbook and writes `data.js`.
-- `casebook.html` is the page. It loads `data.js` from the same folder, and `decisions.js` if present.
+- `casebook.html` is the page. It loads `data.js` from the same folder, and `decisions.js` if present. It has three tabs: **Overview** (`#overview`, the landing page: a diagram of how a hit is decided), **Casebook** (`#casebook` or an alert ID) and **AI review** (`#ai-review`, the actions the AI review has taken: the 15 hits it flagged in `engine/review/flagged_hits.csv`, what changed and why).
 - `data.js` is the built data, so the page works straight from a clone.
 - `decisions.js` holds the engine's decisions (written by `engine/`). Without it the page shows only the hints.
 
@@ -45,3 +46,10 @@ python3 -m venv .venv && .venv/bin/pip install pandas openpyxl
 The first run reads the workbook in about 45 seconds. Later runs reuse `.cache` and take about 12.
 
 `--check` tests the plumbing against the 50 practice labels: did it find the labelled customer records, and does it surface every record the answer cites. It does not compare decisions.
+
+## Submission format
+
+`system/run <data folder> <output file>` runs the engine on an official data folder (the data room's
+`dev/` layout) and writes the organisers' output format; `output/dev.jsonl` is its output on the dev
+set. See `system/README.md`. Keep the data room itself in `data/` (git-ignored): it must not be
+committed.

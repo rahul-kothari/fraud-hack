@@ -4,18 +4,22 @@
     python -m screening.pipeline --grok off            # regex only
     python -m screening.pipeline --alerts A-957E63     # one alert, prints the trail
     python -m screening.pipeline --labelled            # only alerts that have practice labels
+    python -m screening.pipeline --grok off --data ../data/dev --official ../output/dev.jsonl
+                                                       # an official data folder, organisers' output format
 """
 from __future__ import annotations
 
 import argparse
 import json
 import time
+from pathlib import Path
 
 from .config import OUTPUTS
 from .dates import PDate
 from .decide import combine, decide_one, hit_facts
 from .evidence import describe
 from .grok import Grok
+from .risk import assess as risk_assess, combine as risk_combine
 from .resolve import Resolver
 from .store import Store
 
@@ -46,6 +50,7 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
         hit = store.hits[hit_id]
         hf = hit_facts(hit, store, grok)
         verdicts = [(p, decide_one(p, hf, screened_at)) for p in res.people]
+        risk = risk_combine([risk_assess(p, hit, hf, screened_at) for p in res.people])
         v, cust_ids = combine(verdicts)
         if res.people[0].from_alert_only:
             cust_ids = []
@@ -69,12 +74,39 @@ def run_alert(alert: dict, store: Store, resolver: Resolver, grok: Grok | None) 
             "path": " → ".join(path),
             "extraction_methods": hf.methods,
             "evidence_detail": detail,
+            "risk_pct": risk.pct,
+            "risk_band": risk.band,
+            "p_same": risk.p_same,
+            "risk_drivers": [f"{t} ({x:+.1f})" for t, x in risk.drivers],
+            "risk_flags": risk.flags,
         })
     return out
 
 
 LABEL_COLUMNS = ["hit_id", "alert_id", "decision", "reason_codes", "customer_record_ids", "evidence",
                  "reference_reason", "path"]
+
+
+OFFICIAL_FIELDS = ("hit_id", "alert_id", "decision", "reason_code", "customer_record_id", "reason", "evidence")
+
+
+def official_row(r: dict) -> dict:
+    """One decision in the organisers' output format (output.schema.json): a single reason
+    code (the main ground, listed first), one customer record, the reason and the deciding
+    record IDs. Several records of one person (an old account and a current one) all count as
+    right, so the first is given; AMBIGUOUS only when the engine found more than one person."""
+    ids = [i for i in r["customer_record_ids"] if i]
+    record = "AMBIGUOUS" if "AMBIGUOUS" in ids else (ids[0] if ids else None)
+    return {"hit_id": r["hit_id"], "alert_id": r["alert_id"], "decision": r["decision"],
+            "reason_code": r["reason_codes"][0], "customer_record_id": record,
+            "reason": r["reference_reason"], "evidence": list(r["evidence"])}
+
+
+def write_official(rows: list[dict], path: str) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for r in rows:
+            f.write(json.dumps(official_row(r), ensure_ascii=False) + "\n")
 
 
 def write_csv(rows: list[dict], path: str) -> None:
@@ -98,6 +130,19 @@ def alert_outcome(decisions: list[str]) -> str:
     return "REVIEW"
 
 
+def review_actions() -> list[dict]:
+    """The AI review's log (engine/review/flagged_hits.csv), for the casebook's AI review tab."""
+    import csv
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / "review" / "flagged_hits.csv"
+    if not p.exists():
+        return []
+    keep = ("hit_id", "alert_id", "current_decision", "current_reason", "suggested_decision", "suggested_reason",
+            "cause", "evidence_summary", "resolution")
+    with open(p, encoding="utf-8", newline="") as f:
+        return [{k: r.get(k, "") for k in keep} for r in csv.DictReader(f)]
+
+
 def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str, engine: str) -> None:
     """Write window.DECISIONS for visual/casebook.html. A script, not JSON, so the page opens from disk."""
     from datetime import datetime, timezone
@@ -113,6 +158,7 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
             "customer_record_ids": r["customer_record_ids"], "evidence": r["evidence"],
             "reason": r["reference_reason"], "path": r["path"].split(" → "),
             "methods": r["extraction_methods"], "evidence_detail": r["evidence_detail"],
+            "risk": {k: r[k] for k in ("risk_pct", "risk_band", "p_same", "risk_drivers", "risk_flags")},
             **({"vs_label": per[r["hit_id"]]} if r["hit_id"] in per else {}),
         }
     outcomes = {a["alert_id"]: alert_outcome([by_hit[h]["decision"] for h in a["hit_ids"] if h in by_hit])
@@ -127,6 +173,7 @@ def write_casebook(rows: list[dict], alerts: list[dict], store: Store, path: str
                                    for k in ("DIFFERENT_ENTITY", "REVIEW", "SAME_ENTITY")},
                  "labels": s},
         "hits": hits, "alerts": outcomes,
+        "review_actions": review_actions(),
     }
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("window.DECISIONS = ")
@@ -141,13 +188,15 @@ def main() -> None:
                     help="auto: call Grok when a key is set; cache: use cached answers only; off: regex only")
     ap.add_argument("--alerts", nargs="*", help="only these alert IDs")
     ap.add_argument("--labelled", action="store_true", help="only alerts with practice labels")
+    ap.add_argument("--data", help="an official data folder (e.g. ../data/dev); default: processed/tables")
     ap.add_argument("--out", default=str(OUTPUTS / "decisions.jsonl"))
+    ap.add_argument("--official", help="also write the decisions in the organisers' output format (e.g. ../output/dev.jsonl)")
     ap.add_argument("--csv", help="also write the decisions as a CSV in the practice labels' columns and format")
     ap.add_argument("--casebook", help="also write the decisions for visual/casebook.html (e.g. ../visual/decisions.js)")
     args = ap.parse_args()
 
     t0 = time.time()
-    store = Store()
+    store = Store(args.data)
     grok = None if args.grok == "off" else Grok(offline=args.grok == "cache")
     resolver = Resolver(store, grok)
     print(f"loaded in {time.time() - t0:.1f}s; {grok.stats() if grok else 'grok off'}")
@@ -175,6 +224,8 @@ def main() -> None:
     print(f"{len(rows)} hits from {len(alerts)} alerts -> {args.out}  {counts}")
     if grok:
         print(grok.stats())
+    if args.official:
+        write_official(rows, args.official)
     if args.csv:
         write_csv(rows, args.csv)
     if args.casebook:

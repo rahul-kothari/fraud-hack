@@ -72,6 +72,10 @@ def _name_check(person: Person, hf: HitFacts, use_verified: bool) -> tuple[bool 
     else:
         cust = [(person.verified_name.value, person.verified_name.source)] if person.verified_name else \
             [(f.value, f.source) for f in person.record_names]
+    if company != (hf.entity_type == "Company"):
+        # A company's name never agrees with a person's: "Stadtwerke München GmbH" is not "Mun Chen",
+        # however the letters line up.
+        return False, [c[1] for c in cust], hf.names[0]
     usable = False
     for cname, src in cust:
         cp = parts(cname, company)
@@ -88,6 +92,29 @@ def _name_check(person: Person, hf: HitFacts, use_verified: bool) -> tuple[bool 
 
 def _list(xs) -> str:
     return ", ".join(sorted(xs))
+
+
+_TRANSLIT = None
+
+
+def native_alias_agreement(person: Person, hf: HitFacts) -> tuple[str, str] | None:
+    """Safety net for NAME_MISMATCH_VERIFIED (screening/translit). If the verified name agrees with the
+    hit only through a native-script alias that has no Latin counterpart on the profile (e.g. the alias
+    أنيس رحماني, Anis Rahmani, on 'Mokaddem, Mohamed'), the name cannot clear the hit.
+    Returns (alias, its romanised reading) or None. It never confirms a match."""
+    global _TRANSLIT
+    if not person.verified_name or person.is_company != (hf.entity_type == "Company"):
+        return None                       # names of a company and a person are never compared
+    if _TRANSLIT is None:
+        from .translit import NameMatcher
+        _TRANSLIT = NameMatcher()
+    a = _TRANSLIT.assess([person.verified_name.value], hf.names, entity_type=hf.entity_type,
+                         customer_entity_type=person.entity_type)
+    if a.status != "agree_via_transliteration":
+        return None
+    t = a.transliterated
+    reading = " ".join(t.hit_parts) if t.hit_parts else t.hit_name
+    return t.hit_name, reading
 
 
 def _hit_dob_text(hf: HitFacts) -> str:
@@ -146,7 +173,8 @@ def decide_one(person: Person, hf: HitFacts, screened_at: PDate) -> Verdict:
         found.append(("DOB_MISMATCH", dob_src + sr_src,
                       f"The customer's date of birth is {dob} ({dsrc}) but {_hit_dob_clause(hf)}."))
     verified_agree, v_src, _ = _name_check(person, hf, use_verified=True)
-    if verified_agree is False:
+    native = native_alias_agreement(person, hf) if verified_agree is False else None
+    if verified_agree is False and native is None:
         found.append(("NAME_MISMATCH_VERIFIED", v_src,                 # the verified check only
                       f"The customer's verified name is {person.verified_name.value} "
                       f"({person.verified_name.source}), which does not match the hit's name {hf.names[0]}."))
@@ -188,7 +216,12 @@ def decide_one(person: Person, hf: HitFacts, screened_at: PDate) -> Verdict:
     # REVIEW: cite what ties the customer to the hit's countries (records, checks or residence notes)
     shared_src = list(dict.fromkeys(f.source for f in person.countries if f.value in shared))
     said = [shared_sentence]
-    if name_agree:
+    if native:
+        alias, reading = native
+        said.append(f"The customer's verified name {person.verified_name.value} ({person.verified_name.source}) "
+                    f"does not match the hit's Latin names, but it agrees with the hit's alias {alias}, read as "
+                    f"{reading}. That alias has no Latin counterpart, so the name cannot clear the hit.")
+    elif name_agree:
         said.append(name_sentence)
     elif name_agree is None:
         said.append("The customer's name has fewer than two real parts, so it can neither confirm nor clear "

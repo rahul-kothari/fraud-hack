@@ -1,0 +1,3 @@
+system/run text eol=lf
+*.py text eol=lf
+output/*.jsonl text eol=lf

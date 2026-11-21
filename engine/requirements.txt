@@ -1,1 +1,5 @@
 openpyxl>=3.1
+# optional: improves Chinese/Korean hanja readings in screening/translit
+anyascii>=0.3
+# tests
+pytest
